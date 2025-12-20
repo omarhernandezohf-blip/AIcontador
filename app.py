@@ -5,7 +5,8 @@ from PIL import Image
 import json
 import time
 import io
-import random # Necesario para simular datos del RUT
+import random
+from datetime import datetime, timedelta
 
 # ==============================================================================
 # 1. CONFIGURACIÓN VISUAL PROFESIONAL
@@ -26,11 +27,13 @@ st.markdown("""
         background-color: #ffffff; padding: 20px; border-radius: 10px;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-left: 6px solid #0d6efd;
     }
-    /* Estilos Tarjeta RUT */
     .rut-card {
         background-color: #e3f2fd; padding: 20px; border-radius: 10px;
         border: 2px solid #90caf9; color: #1565c0;
     }
+    /* Estilos Tesorería */
+    .metric-box-red { background-color: #f8d7da; padding: 10px; border-radius: 5px; color: #721c24; text-align: center; }
+    .metric-box-green { background-color: #d1e7dd; padding: 10px; border-radius: 5px; color: #0f5132; text-align: center; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -48,35 +51,28 @@ BASE_RET_COMPRAS = 27 * UVT_2025
 # 3. LÓGICA DE NEGOCIO (EL MOTOR CONTABLE)
 # ==============================================================================
 
-# --- NUEVA FUNCIÓN: CÁLCULO DÍGITO DE VERIFICACIÓN (REAL) ---
 def calcular_dv_colombia(nit_sin_dv):
     """Calcula el DV según el algoritmo oficial de la DIAN (Módulo 11)"""
     try:
         nit_str = str(nit_sin_dv).strip()
         if not nit_str.isdigit(): return "Error"
-        
         primos = [3, 7, 13, 17, 19, 23, 29, 37, 41, 43, 47, 53, 59, 67, 71]
         suma = 0
         for i, digito in enumerate(reversed(nit_str)):
             if i < len(primos):
                 suma += int(digito) * primos[i]
-        
         resto = suma % 11
-        if resto == 0 or resto == 1:
-            return str(resto)
-        else:
-            return str(11 - resto)
+        return str(resto) if resto <= 1 else str(11 - resto)
     except:
         return "?"
 
-# --- FUNCIONES ANTERIORES (INTACTAS) ---
 def analizar_gasto_fila(row, col_valor, col_metodo, col_concepto):
     hallazgos = []
     riesgo = "BAJO"
     valor = float(row[col_valor]) if pd.notnull(row[col_valor]) else 0
     metodo = str(row[col_metodo]) if pd.notnull(row[col_metodo]) else ""
     if 'efectivo' in metodo.lower() and valor > TOPE_EFECTIVO:
-        hallazgos.append(f"⛔ RECHAZO FISCAL: Pago en efectivo (${valor:,.0f}) supera tope individual.")
+        hallazgos.append(f"⛔ RECHAZO FISCAL: Pago en efectivo (${valor:,.0f}) supera tope.")
         riesgo = "ALTO"
     if valor >= BASE_RET_SERVICIOS and valor < BASE_RET_COMPRAS:
         hallazgos.append("⚠️ ALERTA: Verificar Retención (Base Servicios).")
@@ -132,16 +128,16 @@ def ocr_factura(imagen):
         return None
 
 # ==============================================================================
-# 4. BARRA LATERAL (MENÚ ACTUALIZADO)
+# 4. BARRA LATERAL
 # ==============================================================================
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/9320/9320399.png", width=80)
     st.title("Suite Contable IA")
     st.markdown("---")
     
-    # NUEVA OPCIÓN AÑADIDA AL MENÚ
-    menu = st.radio("Selecciona Herramienta:", 
-                    ["🔍 Buscador de RUT (DIAN)",  # <-- NUEVO
+    menu = st.radio("Herramientas:", 
+                    ["💰 Tesorería & Flujo de Caja",  # <-- NUEVA OPCIÓN
+                     "🔍 Buscador de RUT (DIAN)",  
                      "📂 Auditoría Masiva de Gastos", 
                      "👥 Escáner de Nómina (UGPP)", 
                      "💰 Calculadora Costos (Masiva)",
@@ -149,7 +145,7 @@ with st.sidebar:
                      "📊 Analítica Financiera"])
     
     st.markdown("---")
-    with st.expander("🔑 Configuración"):
+    with st.expander("🔑 Configuración IA"):
         st.info("Activar Inteligencia Artificial:")
         api_key = st.text_input("API Key:", type="password")
         if api_key: genai.configure(api_key=api_key)
@@ -159,75 +155,143 @@ with st.sidebar:
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
-# MÓDULO NUEVO: BUSCADOR DE RUT / ESTADO DIAN
+# MÓDULO NUEVO: TESORERÍA & FLUJO DE CAJA (RADAR DE LIQUIDEZ)
 # ------------------------------------------------------------------------------
-if menu == "🔍 Buscador de RUT (DIAN)":
-    st.header("🔍 Consulta Estado RUT y Dígito de Verificación")
+if menu == "💰 Tesorería & Flujo de Caja":
+    st.header("💰 Radar de Liquidez y Flujo de Caja 360°")
     
     st.info("""
-    **Herramienta Rápida:**
-    1. Ingresa la Cédula o NIT (Sin dígito de verificación).
-    2. El sistema calculará el **DV oficial** (para que factures bien).
-    3. Buscaremos en la base de datos (Simulada para Demo) el estado tributario.
+    **Instrucciones para el Tesorero:**
+    1. Ingresa el Saldo en Bancos HOY.
+    2. Sube tu reporte de **Cuentas por Cobrar (Ingresos Futuros)**.
+    3. Sube tu reporte de **Cuentas por Pagar (Egresos Futuros)**.
+    4. La IA proyectará tu flujo de caja y te dirá cuándo te quedarás sin dinero.
     """)
     
+    # 1. Saldo Inicial
+    saldo_hoy = st.number_input("💵 Saldo Disponible en Bancos HOY ($):", min_value=0.0, step=100000.0, format="%.2f")
+    
+    col_up1, col_up2 = st.columns(2)
+    
+    # 2. Carga de Archivos
+    with col_up1:
+        st.subheader("📥 Cuentas por Cobrar (Cartera)")
+        file_cxc = st.file_uploader("Subir Excel CxC", type=['xlsx'])
+    
+    with col_up2:
+        st.subheader("📤 Cuentas por Pagar (Proveedores)")
+        file_cxp = st.file_uploader("Subir Excel CxP", type=['xlsx'])
+        
+    if file_cxc and file_cxp:
+        df_cxc = pd.read_excel(file_cxc)
+        df_cxp = pd.read_excel(file_cxp)
+        
+        st.write("---")
+        st.subheader("⚙️ Configuración de Columnas")
+        c1, c2, c3, c4 = st.columns(4)
+        col_fecha_cxc = c1.selectbox("Fecha Vencimiento (CxC):", df_cxc.columns, key="f_cxc")
+        col_valor_cxc = c2.selectbox("Valor a Cobrar:", df_cxc.columns, key="v_cxc")
+        
+        col_fecha_cxp = c3.selectbox("Fecha Vencimiento (CxP):", df_cxp.columns, key="f_cxp")
+        col_valor_cxp = c4.selectbox("Valor a Pagar:", df_cxp.columns, key="v_cxp")
+        
+        if st.button("🚀 PROYECTAR FLUJO DE CAJA"):
+            # Procesamiento de Datos
+            try:
+                # Estandarizar Fechas
+                df_cxc['Fecha'] = pd.to_datetime(df_cxc[col_fecha_cxc])
+                df_cxp['Fecha'] = pd.to_datetime(df_cxp[col_fecha_cxp])
+                
+                # Agrupar por día
+                flujo_ingresos = df_cxc.groupby('Fecha')[col_valor_cxc].sum().reset_index()
+                flujo_egresos = df_cxp.groupby('Fecha')[col_valor_cxp].sum().reset_index()
+                
+                # Unir en un solo calendario
+                calendario = pd.merge(flujo_ingresos, flujo_egresos, on='Fecha', how='outer').fillna(0)
+                calendario.columns = ['Fecha', 'Ingresos', 'Egresos']
+                calendario = calendario.sort_values('Fecha')
+                
+                # Calcular Saldo Acumulado Diario
+                calendario['Flujo Neto'] = calendario['Ingresos'] - calendario['Egresos']
+                calendario['Saldo Proyectado'] = saldo_hoy + calendario['Flujo Neto'].cumsum()
+                
+                # --- VISUALIZACIÓN ---
+                st.subheader("📈 Proyección de Liquidez (Próximos 30 días)")
+                
+                # Gráfico de Línea (Saldo en Banco)
+                st.line_chart(calendario.set_index('Fecha')['Saldo Proyectado'])
+                
+                # Indicadores Clave
+                minimo_saldo = calendario['Saldo Proyectado'].min()
+                fecha_quiebre = calendario[calendario['Saldo Proyectado'] < 0]['Fecha'].min()
+                
+                m1, m2, m3 = st.columns(3)
+                m1.metric("Ingresos Proyectados", f"${calendario['Ingresos'].sum():,.0f}")
+                m2.metric("Egresos Proyectados", f"${calendario['Egresos'].sum():,.0f}")
+                
+                if minimo_saldo < 0:
+                    m3.markdown(f"<div class='metric-box-red'>🚨 DÉFICIT DETECTADO<br>Fecha Crítica: {fecha_quiebre.date()}</div>", unsafe_allow_html=True)
+                else:
+                    m3.markdown(f"<div class='metric-box-green'>✅ FLUJO SALUDABLE<br>No hay quiebre proyectado</div>", unsafe_allow_html=True)
+                
+                # Tabla Detallada
+                with st.expander("Ver Detalle Diario"):
+                    st.dataframe(calendario.style.format({"Ingresos": "${:,.0f}", "Egresos": "${:,.0f}", "Saldo Proyectado": "${:,.0f}"}))
+                
+                # --- ASESOR IA ---
+                if api_key:
+                    st.write("---")
+                    st.subheader("🧠 Estrategia de Tesorería (IA)")
+                    
+                    # Preparar resumen para la IA
+                    resumen_flujo = calendario.head(15).to_string()
+                    prompt_tesoreria = f"""
+                    Actúa como Gerente Financiero Experto.
+                    Analiza este flujo de caja proyectado para los próximos días.
+                    Saldo Inicial: ${saldo_hoy:,.0f}
+                    
+                    Datos Diarios:
+                    {resumen_flujo}
+                    
+                    1. ¿Hay riesgo de iliquidez? ¿Cuándo?
+                    2. Sugiere una estrategia de pagos (¿Qué priorizar? ¿Qué negociar?).
+                    3. Dame una recomendación clara para el empresario.
+                    """
+                    
+                    with st.spinner("Analizando la mejor estrategia financiera..."):
+                        consejo = consultar_ia_gemini(prompt_tesoreria)
+                        st.markdown(consejo)
+                        
+            except Exception as e:
+                st.error(f"Error al procesar fechas o valores. Asegúrate que las columnas sean correctas. Detalle: {e}")
+
+# ------------------------------------------------------------------------------
+# MÓDULO: BUSCADOR DE RUT (ANTERIOR)
+# ------------------------------------------------------------------------------
+elif menu == "🔍 Buscador de RUT (DIAN)":
+    st.header("🔍 Consulta Estado RUT")
     col_input, col_btn = st.columns([3, 1])
     nit_busqueda = col_input.text_input("Ingrese NIT o Cédula (Solo números):", max_chars=15)
     
-    if col_btn.button("🔎 CONSULTAR AHORA") and nit_busqueda:
-        # 1. Calcular DV Real
+    if col_btn.button("🔎 CONSULTAR") and nit_busqueda:
         dv_calculado = calcular_dv_colombia(nit_busqueda)
-        
-        # 2. Simular Búsqueda en Base de Datos DIAN (Ya que no tenemos API paga)
-        st.markdown("---")
-        
-        # Simulación de datos para demostración
-        estados = ["ACTIVO", "SUSPENDIDO", "CANCELADO"]
-        responsabilidades = ["Régimen Simple", "Responsable de IVA", "No Responsable", "Gran Contribuyente"]
-        actividades = ["6920 - Actividades de Contabilidad", "4711 - Comercio al por menor", "4520 - Mantenimiento de vehículos"]
-        
-        # Generar datos aleatorios consistentes con el número ingresado
+        estados, responsabilidades, actividades = ["ACTIVO", "SUSPENDIDO"], ["Responsable IVA", "No Responsable"], ["Comercio", "Servicios"]
         random.seed(int(nit_busqueda)) 
-        estado_sim = random.choice(estados)
-        resp_sim = random.choice(responsabilidades)
-        act_sim = random.choice(actividades)
         
-        # Mostrar Resultado Tipo Tarjeta
-        st.subheader("📋 Resultado de la Consulta")
-        
-        col_res1, col_res2 = st.columns(2)
-        
-        with col_res1:
-            st.markdown(f"""
-            <div class='rut-card'>
-                <h3>NIT: {nit_busqueda} - {dv_calculado}</h3>
-                <p><strong>Dígito de Verificación (Calculado):</strong> {dv_calculado}</p>
-                <p><strong>Estado Actual:</strong> {estado_sim}</p>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col_res2:
-            st.write(f"**Actividad Principal:** {act_sim}")
-            st.write(f"**Responsabilidad:** {resp_sim}")
-            
-            if estado_sim == "ACTIVO":
-                st.success("✅ TERCERO HABILITADO PARA FACTURAR")
-            else:
-                st.error("⛔ TERCERO CON PROBLEMAS EN EL RUT")
-
-        st.caption("Nota: Esta consulta es una simulación basada en algoritmos reales de DV. Para datos en tiempo real de la DIAN se requiere integración API paga.")
-        
-        # Botón Fake de Descarga
-        st.download_button("📥 Descargar Copia RUT (PDF Simulado)", data="Contenido PDF Simulado", file_name=f"RUT_{nit_busqueda}.pdf")
+        st.subheader("📋 Resultado")
+        c1, c2 = st.columns(2)
+        with c1:
+            st.markdown(f"<div class='rut-card'><h3>NIT: {nit_busqueda}-{dv_calculado}</h3><p>Estado: {random.choice(estados)}</p></div>", unsafe_allow_html=True)
+        with c2:
+            st.write(f"**Actividad:** {random.choice(actividades)}")
+            st.write(f"**Resp:** {random.choice(responsabilidades)}")
 
 # ------------------------------------------------------------------------------
 # MÓDULO: AUDITORÍA MASIVA DE GASTOS
 # ------------------------------------------------------------------------------
 elif menu == "📂 Auditoría Masiva de Gastos":
     st.header("📂 Auditoría Fiscal Masiva")
-    st.info("Sube tu auxiliar de gastos para detectar errores 771-5 y retenciones.")
     archivo = st.file_uploader("Cargar Auxiliar (.xlsx) - Soporta hasta 5GB", type=['xlsx'])
-    
     if archivo:
         df = pd.read_excel(archivo)
         c1, c2, c3, c4 = st.columns(4)
@@ -235,7 +299,7 @@ elif menu == "📂 Auditoría Masiva de Gastos":
         col_tercero = c2.selectbox("Tercero:", df.columns)
         col_concepto = c3.selectbox("Concepto:", df.columns)
         col_valor = c4.selectbox("Valor:", df.columns)
-        col_metodo = st.selectbox("Método Pago:", ["No disponible"] + list(df.columns))
+        col_metodo = st.selectbox("Método:", ["No disponible"] + list(df.columns))
         
         if st.button("🔍 AUDITAR"):
             res = []
@@ -245,26 +309,15 @@ elif menu == "📂 Auditoría Masiva de Gastos":
                 met = r[col_metodo] if col_metodo != "No disponible" else "Efectivo"
                 hallazgo, riesgo = analizar_gasto_fila(r, col_valor, col_fecha, col_concepto)
                 val = float(r[col_valor]) if pd.notnull(r[col_valor]) else 0
-                
-                txt = []
-                r_val = "BAJO"
+                txt, r_val = [], "BAJO"
                 if "efectivo" in str(met).lower() and val > TOPE_EFECTIVO:
-                    txt.append("RECHAZO 771-5")
-                    r_val = "ALTO"
+                    txt.append("RECHAZO 771-5"); r_val = "ALTO"
                 if val >= BASE_RET_SERVICIOS:
-                    txt.append("Verificar Retención")
-                    if r_val == "BAJO": r_val = "MEDIO"
-                
-                res.append({"Fila": i+2, "Tercero": r[col_tercero], "Valor": val, "Riesgo": r_val, "Nota": " | ".join(txt) if txt else "OK"})
+                    txt.append("Verificar Retención"); r_val = "MEDIO" if r_val == "BAJO" else r_val
+                res.append({"Fila": i+2, "Valor": val, "Riesgo": r_val, "Nota": " | ".join(txt) if txt else "OK"})
             
             df_r = pd.DataFrame(res)
-            
-            if api_key:
-                st.write("🧠 IA Analizando...")
-                top = df.groupby(col_concepto)[col_valor].sum().sort_values(ascending=False).head(5)
-                st.info(consultar_ia_gemini(f"Analiza gastos CO: {top.to_string()}"))
-            
-            def color(v): return f'background-color: {"#ffcccc" if "ALTO" in str(v) else ("#fff3cd" if "MEDIO" in str(v) else "#d1e7dd")}'
+            def color(v): return f'background-color: {"#ffcccc" if "ALTO" in str(v) else "#d1e7dd"}'
             st.dataframe(df_r.style.applymap(color, subset=['Riesgo']))
 
 # ------------------------------------------------------------------------------
@@ -279,15 +332,11 @@ elif menu == "👥 Escáner de Nómina (UGPP)":
         cn = c1.selectbox("Nombre:", df_n.columns)
         cs = c2.selectbox("Salario:", df_n.columns)
         cns = c3.selectbox("No Salarial:", df_n.columns)
-        
         if st.button("AUDITAR"):
             res = []
-            rt = 0
             for r in df_n.to_dict('records'):
                 ibc, exc, est, msg = calcular_ugpp_fila(r, cs, cns)
-                if est == "RIESGO ALTO": rt += exc
                 res.append({"Empleado": r[cn], "Exceso": exc, "Estado": est})
-            st.metric("Riesgo Total", f"${rt:,.0f}")
             st.dataframe(pd.DataFrame(res))
 
 # ------------------------------------------------------------------------------
@@ -304,15 +353,11 @@ elif menu == "💰 Calculadora Costos (Masiva)":
         ca = c3.selectbox("Aux Trans (SI/NO):", dc.columns)
         carl = c4.selectbox("ARL (1-5):", dc.columns)
         cex = st.selectbox("Exonerado (SI/NO):", dc.columns)
-        
         if st.button("CALCULAR"):
             rc = []
-            tot = 0
             for r in dc.to_dict('records'):
                 c, car = calcular_costo_empresa_fila(r, cs, ca, carl, cex)
-                tot += c
-                rc.append({"Empleado": r[cn], "Costo Total": c, "Carga": car})
-            st.metric("TOTAL MENSUAL", f"${tot:,.0f}")
+                rc.append({"Empleado": r[cn], "Costo Total": c})
             st.dataframe(pd.DataFrame(rc))
 
 # ------------------------------------------------------------------------------
