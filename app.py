@@ -1,251 +1,268 @@
 import streamlit as st
+import pandas as pd
+from datetime import datetime
 import google.generativeai as genai
 from PIL import Image
-import pandas as pd
 import json
 import time
 import io
 
-# --- 1. CONFIGURACIÓN DE LA PÁGINA ---
-st.set_page_config(page_title="Asistente Contable IA", page_icon="📊", layout="wide")
+# ==============================================================================
+# 1. CONFIGURACIÓN ESTRUCTURAL Y VISUAL
+# ==============================================================================
+st.set_page_config(page_title="Asistente Contable Pro IA", page_icon="📊", layout="wide")
 
-# Estilos visuales para que se vea limpio y profesional
-def local_css():
-    st.markdown("""
-        <style>
-        html, body, [class*="css"] { font-family: 'Segoe UI', sans-serif; }
-        .stButton>button {
-            background-color: #0056b3; color: white; border-radius: 8px; 
-            font-weight: bold; width: 100%; padding: 10px;
-        }
-        /* Cajas de alerta personalizadas */
-        .alerta-roja { color: #721c24; background-color: #f8d7da; padding: 10px; border-radius: 5px; border-left: 5px solid red;}
-        .alerta-verde { color: #155724; background-color: #d4edda; padding: 10px; border-radius: 5px; border-left: 5px solid green;}
-        </style>
-        """, unsafe_allow_html=True)
-local_css()
+# Estilos CSS Profesionales (Integrando tu diseño visual)
+st.markdown("""
+    <style>
+    .main { background-color: #f8f9fa; }
+    .stButton>button {
+        background-color: #0d6efd; color: white; border-radius: 8px; 
+        font-weight: bold; width: 100%; padding: 10px; border: none;
+    }
+    .stButton>button:hover { background-color: #0b5ed7; }
+    /* Cajas de alerta personalizadas para Auditoría IA */
+    .alerta-roja { color: #842029; background-color: #f8d7da; padding: 15px; border-radius: 5px; border-left: 5px solid #dc3545;}
+    .alerta-verde { color: #0f5132; background-color: #d1e7dd; padding: 15px; border-radius: 5px; border-left: 5px solid #198754;}
+    .metric-card { background-color: white; padding: 15px; border-radius: 10px; box-shadow: 2px 2px 10px rgba(0,0,0,0.05); }
+    </style>
+    """, unsafe_allow_html=True)
 
-# --- BARRA LATERAL (CONFIGURACIÓN) ---
-with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/9320/9320399.png", width=80)
-    st.title("Panel de Control")
-    st.markdown("---")
+# ==============================================================================
+# 2. GESTIÓN DE ESTADO Y DATOS (DATABASE SIMULADA)
+# ==============================================================================
+if 'historial_pagos' not in st.session_state:
+    st.session_state.historial_pagos = pd.DataFrame({
+        'nit': ['900123456', '88222333', '1098765432'],
+        'nombre': ['Suministros SAS', 'Pedro Pintor (Régimen Simple)', 'María Contadora'],
+        'acumulado_mes': [0.0, 3500000.0, 150000.0],
+        'responsable_iva': [True, False, False]
+    })
+
+# Constantes Fiscales 2025
+UVT_2025 = 49799
+TOPE_EFECTIVO = 100 * UVT_2025
+BASE_RETENCION = 4 * UVT_2025
+
+# ==============================================================================
+# 3. LÓGICA DEL CEREBRO (FUNCIONES)
+# ==============================================================================
+
+# --- A. Lógica de Reglas (Matemática Pura - Lo que ya teníamos) ---
+def auditar_reglas_negocio(nit, valor, metodo_pago):
+    alertas = []
+    bloqueo = False
     
-    # Explicación clara de la llave
-    st.markdown("### 🔑 Paso 1: Activar Sistema")
-    api_key_input = st.text_input("Pega aquí tu API Key de Google", type="password", help="Es la contraseña que conecta con la Inteligencia Artificial.")
-    
-    if api_key_input:
-        genai.configure(api_key=api_key_input)
-        st.success("✅ Sistema ACTIVADO y listo.")
-    else:
-        st.warning("⚠️ El sistema está en pausa. Ingresa la llave para iniciar.")
+    # 1. Bancarización
+    if metodo_pago == 'Efectivo' and valor > TOPE_EFECTIVO:
+        alertas.append(f"🔴 **RIESGO FISCAL (Art. 771-5):** Pago en efectivo supera tope individual ({TOPE_EFECTIVO:,.0f}).")
+        bloqueo = True
+        
+    # 2. Retenciones
+    tercero = st.session_state.historial_pagos[st.session_state.historial_pagos['nit'] == nit]
+    if not tercero.empty:
+        acumulado = tercero['acumulado_mes'].values[0]
+        if acumulado < BASE_RETENCION and (acumulado + valor) >= BASE_RETENCION:
+            alertas.append(f"🔔 **RETENCIÓN:** El acumulado mensual supera la base. Practicar Retención.")
+            
+    return alertas, bloqueo
 
-    st.markdown("---")
-    st.info("ℹ️ **Soporte:** Esta herramienta ayuda a agilizar la digitación y revisión, pero el criterio final es del Contador.")
+def auditar_nomina_ugpp(salario, no_salariales):
+    total = salario + no_salariales
+    limite_40 = total * 0.40
+    if no_salariales > limite_40:
+        exceso = no_salariales - limite_40
+        return salario + exceso, exceso, "⚠️ EXCESO 40%", "Riesgo"
+    return salario, 0, "✅ OK", "Seguro"
 
-# --- FUNCIONES DEL CEREBRO (IA) ---
-def encontrar_modelo():
-    """Busca el mejor modelo de IA disponible"""
-    try:
-        modelos = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        # Priorizamos el modelo Flash que es rápido y bueno para documentos
-        preferidos = ['models/gemini-1.5-flash', 'models/gemini-1.5-pro']
-        for pref in preferidos:
-            if pref in modelos: return pref
-        return modelos[0] if modelos else None
-    except:
-        return None
-
-def auditar_gasto(concepto, valor):
-    """Consulta normativa sobre un gasto específico"""
+# --- B. Lógica de IA (Gemini - Lo Nuevo) ---
+def consultar_ia_dian(concepto, valor):
+    """Consulta normativa conceptual a Gemini"""
     try:
         model = genai.GenerativeModel('models/gemini-1.5-flash')
         prompt = f"""
-        Actúa como un Auditor Tributario Senior de Colombia.
-        Analiza este gasto según el Estatuto Tributario vigente:
-        Concepto: "{concepto}"
-        Valor: ${valor}
-        
-        Responde SOLO en formato JSON:
-        {{"riesgo": "ALTO (No Deducible) / MEDIO / BAJO (Deducible)", "razon": "Explicación breve normativa", "cuenta_puc": "Código sugerido"}}
+        Actúa como Auditor Tributario en Colombia. Analiza: Gasto="{concepto}", Valor=${valor}.
+        Responde SOLO JSON: {{"riesgo": "ALTO/MEDIO/BAJO", "razon": "Explicación corta", "cuenta_puc": "Código sugerido"}}
         """
         response = model.generate_content(prompt)
-        texto_limpio = response.text.replace("```json", "").replace("```", "").strip()
-        return json.loads(texto_limpio)
+        return json.loads(response.text.replace("```json", "").replace("```", "").strip())
     except:
-        return {"riesgo": "Error", "razon": "No se pudo analizar", "cuenta_puc": "N/A"}
+        return {"riesgo": "Error", "razon": "Fallo de conexión IA", "cuenta_puc": "N/A"}
 
-# --- TÍTULO PRINCIPAL ---
-st.title("🤖 Asistente Contable Inteligente")
-st.markdown("### Automatización y Auditoría para Contadores Modernos")
-
-# --- PESTAÑAS (TABS) CLARAS ---
-tab1, tab2 = st.tabs(["📄 1. Digitación Automática (De Foto a Excel)", "⚖️ 2. Auditoría y Conceptos DIAN"])
+def procesar_factura_imagen(image):
+    """OCR Inteligente para facturas"""
+    try:
+        model = genai.GenerativeModel('models/gemini-1.5-flash')
+        prompt = """
+        Extrae datos de esta factura en JSON estricto:
+        {"fecha": "YYYY-MM-DD", "nit": "sin digito verificacion", "proveedor": "nombre", "concepto": "resumen", "base": numero, "iva": numero, "total": numero}
+        Si no es visible pon 0 o null.
+        """
+        response = model.generate_content([prompt, image])
+        return json.loads(response.text.replace("```json", "").replace("```", "").strip())
+    except:
+        return None
 
 # ==============================================================================
-# PESTAÑA 1: DIGITACIÓN (Para ahorrar tiempo de tecleo)
+# 4. INTERFAZ DE USUARIO (SIDEBAR)
 # ==============================================================================
-with tab1:
-    st.header("📸 De Papel a Excel en Segundos")
-    st.markdown("""
-    **Instrucciones:**
-    1. Sube fotos de facturas físicas, recibos de caja o cuentas de cobro.
-    2. La IA leerá la **Fecha, NIT, Proveedor, Base e IVA**.
-    3. Descarga el Excel listo para copiar y pegar en tu software contable (Siigo, World Office, etc.).
-    """)
+with st.sidebar:
+    st.image("https://cdn-icons-png.flaticon.com/512/9320/9320399.png", width=60)
+    st.title("Panel Contador")
+    
+    # --- CONFIGURACIÓN DE IA ---
+    st.markdown("### 🔑 Llave Maestra (Google AI)")
+    api_key = st.text_input("API Key", type="password", help="Pega aquí tu API Key de Google AI Studio")
+    if api_key:
+        genai.configure(api_key=api_key)
+        st.success("🟢 IA Conectada")
+    else:
+        st.warning("🔴 IA Desconectada")
+        
+    st.markdown("---")
+    menu = st.radio("Herramientas:", 
+                    ["📸 Digitación IA", 
+                     "🛡️ Auditoría Integral", 
+                     "👥 Nómina UGPP"])
 
-    archivos = st.file_uploader("📂 Cargar imágenes de facturas (JPG, PNG)", type=["jpg", "png", "jpeg"], accept_multiple_files=True)
+# ==============================================================================
+# 5. PANTALLAS PRINCIPALES
+# ==============================================================================
 
-    if archivos and st.button("🚀 Extraer Datos y Generar Excel"):
-        if not api_key_input:
-            st.error("⛔ Por favor ingresa la API Key en el menú de la izquierda primero.")
+# --- MÓDULO 1: DIGITACIÓN INTELIGENTE (NUEVO) ---
+if menu == "📸 Digitación IA":
+    st.header("📸 De Papel a Excel (OCR Inteligente)")
+    st.markdown("Sube fotos de facturas físicas. La IA extraerá los datos para importar a tu software.")
+    
+    archivos = st.file_uploader("Cargar Facturas", type=["jpg", "png", "jpeg"], accept_multiple_files=True)
+    
+    if archivos and st.button("🚀 Procesar Imágenes"):
+        if not api_key:
+            st.error("⚠️ Necesitas la API Key para usar visión artificial.")
         else:
-            modelo_usar = encontrar_modelo()
-            if not modelo_usar:
-                st.error("Error de conexión con Google.")
-            else:
-                model = genai.GenerativeModel(modelo_usar)
-                resultados = []
-                barra = st.progress(0)
-                st.info("⏳ Leyendo documentos... Por favor espera.")
-
-                for i, archivo in enumerate(archivos):
-                    # Barra de progreso
-                    barra.progress((i + 1) / len(archivos))
-                    
-                    try:
-                        image = Image.open(archivo)
-                        # Prompt directo para extracción contable
-                        prompt_factura = """
-                        Actúa como auxiliar contable. Extrae los datos de esta imagen en formato JSON estricto:
-                        {"fecha_factura": "YYYY-MM-DD", "nit_proveedor": "solo numeros", "nombre_proveedor": "texto", "descripcion_breve": "texto", "subtotal": numero, "iva": numero, "total_pagar": numero}
-                        Si algún dato no se ve, pon null o 0.
-                        """
-                        response = model.generate_content([prompt_factura, image])
-                        texto_json = response.text.replace("```json", "").replace("```", "").strip()
-                        data = json.loads(texto_json)
-                        data["Nombre Archivo"] = archivo.name # Para saber de cuál factura viene
-                        resultados.append(data)
-                        time.sleep(1) # Pausa técnica
-                    except Exception as e:
-                        resultados.append({"Nombre Archivo": archivo.name, "nombre_proveedor": "ERROR DE LECTURA", "descripcion_breve": str(e)})
-
-                # Éxito
-                st.success("✅ ¡Lectura finalizada!")
+            resultados = []
+            barra = st.progress(0)
+            
+            for i, archivo in enumerate(archivos):
+                barra.progress((i + 1) / len(archivos))
+                img = Image.open(archivo)
+                datos = procesar_factura_imagen(img)
+                if datos:
+                    datos['Archivo'] = archivo.name
+                    resultados.append(datos)
+                time.sleep(1) # Evitar saturar API
+            
+            if resultados:
+                df_facturas = pd.DataFrame(resultados)
+                # Reordenar columnas
+                cols = ['fecha', 'nit', 'proveedor', 'concepto', 'base', 'iva', 'total', 'Archivo']
+                df_facturas = df_facturas[[c for c in cols if c in df_facturas.columns]]
                 
-                # Mostrar Tabla
-                df = pd.DataFrame(resultados)
+                st.success("✅ Procesamiento terminado")
+                st.data_editor(df_facturas, use_container_width=True)
                 
-                # Reordenar columnas para que sea lógico contablemente
-                columnas_orden = ["fecha_factura", "nit_proveedor", "nombre_proveedor", "descripcion_breve", "subtotal", "iva", "total_pagar", "Nombre Archivo"]
-                # Aseguramos que existan las columnas antes de ordenar
-                cols_finales = [c for c in columnas_orden if c in df.columns]
-                df = df[cols_finales]
-
-                st.data_editor(df, use_container_width=True)
-
-                # Botón Descarga
+                # Descarga Excel
                 output = io.BytesIO()
                 with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                    df.to_excel(writer, index=False, sheet_name='Importar_Contabilidad')
-                
-                st.download_button(
-                    label="📥 Descargar Excel Listo",
-                    data=output.getvalue(),
-                    file_name="Facturas_Digitadas_IA.xlsx",
-                    mime="application/vnd.ms-excel"
-                )
+                    df_facturas.to_excel(writer, index=False)
+                st.download_button("📥 Descargar Excel", output.getvalue(), "facturas_ia.xlsx")
 
-# ==============================================================================
-# PESTAÑA 2: AUDITORÍA (Para evitar errores y sanciones)
-# ==============================================================================
-with tab2:
-    st.header("🛡️ Auditoría Tributaria Preventiva")
-    st.markdown("Esta herramienta actúa como un **segundo filtro** para revisar gastos dudosos antes de enviarlos a la DIAN.")
+# --- MÓDULO 2: AUDITORÍA INTEGRAL (FUSIÓN REGLAS + IA) ---
+elif menu == "🛡️ Auditoría Integral":
+    st.header("🛡️ Centro de Fiscalización")
+    
+    tab_reglas, tab_ia, tab_masiva = st.tabs(["⚡ Validación Técnica (Reglas)", "🧠 Consultor DIAN (IA)", "📂 Auditoría Masiva"])
+    
+    # 2.1 Pestaña Reglas (Lo clásico)
+    with tab_reglas:
+        st.subheader("Validación de Requisitos Formales")
+        c1, c2 = st.columns(2)
+        nit = c1.selectbox("Tercero", st.session_state.historial_pagos['nit'])
+        valor = c2.number_input("Valor Pago", step=100000)
+        metodo = c1.selectbox("Método", ["Transferencia", "Efectivo", "Cheque"])
+        
+        if st.button("Verificar Reglas"):
+            alertas, bloqueo = auditar_reglas_negocio(nit, valor, metodo)
+            if not alertas: st.success("✅ Operación Limpia (Formalmente)")
+            for a in alertas: 
+                if "🔴" in a: st.error(a)
+                else: st.warning(a)
 
-    # Opción A: Consulta rápida
-    with st.container():
-        st.subheader("🔍 A. Consulta Rápida de un Gasto")
-        st.caption("Ejemplo: 'Pagué un almuerzo de $200.000 para un cliente. ¿Es deducible de renta?'")
+    # 2.2 Pestaña IA (Lo nuevo conceptual)
+    with tab_ia:
+        st.subheader("Análisis de Deducibilidad (IA)")
+        st.info("Pregunta sobre gastos complejos. Ej: 'Almuerzo con clientes', 'Ropa para empleados'.")
+        consulta = st.text_input("Concepto del gasto:")
+        val_consulta = st.number_input("Valor del gasto:", value=0)
         
-        col_preg, col_resp = st.columns([2, 1])
-        caso_usuario = col_preg.text_area("Describe el gasto o la duda tributaria:", height=100)
-        
-        if col_resp.button("Consultar Normativa"):
-            if not api_key_input:
-                st.error("Falta la API Key en el menú izquierdo.")
-            elif not caso_usuario:
-                st.warning("Escribe algo para consultar.")
+        if st.button("Consultar a Gemini"):
+            if not api_key:
+                st.error("Requiere API Key")
             else:
-                with st.spinner("Consultando Estatuto Tributario..."):
-                    res = auditar_gasto(caso_usuario, "N/A")
+                with st.spinner("Analizando Estatuto Tributario..."):
+                    res = consultar_ia_dian(consulta, val_consulta)
                     
-                    # Mostrar resultado visualmente atractivo
-                    if "ALTO" in res['riesgo'].upper() or "NO DEDUCIBLE" in res['riesgo'].upper():
-                        st.markdown(f"<div class='alerta-roja'>🚨 <b>VEREDICTO:</b> {res['riesgo']}</div>", unsafe_allow_html=True)
+                    if "ALTO" in res['riesgo'].upper():
+                        st.markdown(f"<div class='alerta-roja'>🚨 <b>RIESGO ALTO:</b> {res['riesgo']}</div>", unsafe_allow_html=True)
                     else:
-                        st.markdown(f"<div class='alerta-verde'>✅ <b>VEREDICTO:</b> {res['riesgo']}</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div class='alerta-verde'>✅ <b>CONCEPTO FAVORABLE:</b> {res['riesgo']}</div>", unsafe_allow_html=True)
                     
-                    st.write(f"**Justificación:** {res['razon']}")
-                    st.write(f"**Cuenta sugerida:** {res['cuenta_puc']}")
+                    st.write(f"**Argumento:** {res['razon']}")
+                    st.write(f"**PUC Sugerido:** {res['cuenta_puc']}")
 
-    st.markdown("---")
-
-    # Opción B: Auditoría Masiva
-    with st.container():
-        st.subheader("📊 B. Revisión Masiva de Auxiliares (Excel)")
-        st.markdown("""
-        **Instrucciones:**
-        1. Descarga un auxiliar de gastos de Siigo/World Office en Excel.
-        2. Súbelo aquí.
-        3. La IA analizará línea por línea buscando **gastos no deducibles o riesgosos**.
-        """)
+    # 2.3 Pestaña Masiva (Fusión de ambas lógicas)
+    with tab_masiva:
+        st.subheader("Auditoría de Auxiliares en Excel")
+        uploaded = st.file_uploader("Subir Excel (.xlsx)", type=['xlsx'])
         
-        archivo_excel = st.file_uploader("Sube tu archivo Excel (.xlsx)", type=["xlsx"], key="excel_audit")
-
-        if archivo_excel:
-            df_audit = pd.read_excel(archivo_excel)
-            st.write("Vista previa (Primeras 3 filas):")
-            st.dataframe(df_audit.head(3))
-
-            c1, c2 = st.columns(2)
-            col_concepto = c1.selectbox("Selecciona la columna del DETALLE/CONCEPTO:", df_audit.columns)
-            col_valor = c2.selectbox("Selecciona la columna del VALOR:", df_audit.columns)
-
-            if st.button("📉 Iniciar Auditoría del Archivo"):
-                if not api_key_input:
-                    st.error("Falta la API Key.")
-                else:
-                    st.info("🕵️‍♂️ Analizando gastos... (Esto toma unos segundos por fila)")
+        if uploaded and api_key:
+            if st.button("🔍 Auditar Archivo Completo"):
+                df = pd.read_excel(uploaded)
+                st.info("Analizando primeras 5 filas para demostración...")
+                
+                hallazgos = []
+                barra = st.progress(0)
+                
+                # Ejemplo de barrido híbrido
+                for idx, row in df.head(5).iterrows():
+                    barra.progress((idx+1)/5)
+                    # 1. Chequeo IA
+                    concepto = str(row.get('Concepto', 'Varios'))
+                    valor = float(row.get('Valor', 0))
+                    res_ia = consultar_ia_dian(concepto, valor)
                     
-                    # Tomamos solo 8 filas para la demo rápida (se puede quitar el .head(8) luego)
-                    df_procesar = df_audit.head(8).copy()
-                    
-                    lista_hallazgos = []
-                    barra2 = st.progress(0)
+                    hallazgos.append({
+                        "Fila": idx+1,
+                        "Concepto": concepto,
+                        "Valor": valor,
+                        "Opinión IA": res_ia['riesgo'],
+                        "Justificación": res_ia['razon']
+                    })
+                
+                res_df = pd.DataFrame(hallazgos)
+                
+                def color_riesgo(val):
+                    return 'background-color: #ffcccc' if 'ALTO' in str(val) else 'background-color: #ccffcc'
+                
+                st.dataframe(res_df.style.applymap(color_riesgo, subset=['Opinión IA']))
 
-                    for idx, row in df_procesar.iterrows():
-                        barra2.progress((idx + 1) / len(df_procesar))
-                        resultado = auditar_gasto(str(row[col_concepto]), str(row[col_valor]))
-                        
-                        lista_hallazgos.append({
-                            "Concepto Original": row[col_concepto],
-                            "Valor": row[col_valor],
-                            "Semáforo Riesgo": resultado['riesgo'],
-                            "Opinión Auditor IA": resultado['razon'],
-                            "Cuenta Sugerida": resultado['cuenta_puc']
-                        })
-                        time.sleep(0.5)
-
-                    df_final_audit = pd.DataFrame(lista_hallazgos)
-                    st.success("¡Análisis completado!")
-                    
-                    # Colorear la tabla para impacto visual
-                    def pintar_riesgo(val):
-                        estilo = ''
-                        if 'ALTO' in str(val).upper(): estilo = 'background-color: #ffcccc; color: darkred' # Rojo claro
-                        elif 'BAJO' in str(val).upper(): estilo = 'background-color: #ccffcc; color: darkgreen' # Verde claro
-                        return estilo
-
-                    st.dataframe(df_final_audit.style.applymap(pintar_riesgo, subset=['Semáforo Riesgo']), use_container_width=True)
+# --- MÓDULO 3: NÓMINA (UGPP) ---
+elif menu == "👥 Nómina UGPP":
+    st.header("👮‍♀️ Escudo Anti-UGPP (Ley 1393)")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        salario = st.number_input("Salario Básico", value=1300000.0)
+        no_salarial = st.number_input("Pagos No Salariales (Bonos, Auxilios)", value=0.0)
+    
+    with col2:
+        st.write("### Resultados")
+        if st.button("Calcular IBC Real"):
+            ibc, exc, msg, estado = auditar_nomina_ugpp(salario, no_salarial)
+            
+            if estado == "Riesgo":
+                st.error(f"{msg}")
+                st.metric("IBC Ajustado (PILA)", f"${ibc:,.0f}", delta=f"+{exc:,.0f} Ajuste")
+            else:
+                st.success(msg)
+                st.metric("IBC Reportar", f"${ibc:,.0f}")
