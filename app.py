@@ -9,45 +9,93 @@ from datetime import datetime, timedelta
 import xml.etree.ElementTree as ET
 
 # ==============================================================================
-# 1. CONFIGURACIÓN VISUAL PROFESIONAL
+# 1. CONFIGURACIÓN VISUAL PROFESIONAL (ESTILO CORPORATIVO)
 # ==============================================================================
 st.set_page_config(page_title="Asistente Contable Pro 2025", page_icon="📊", layout="wide")
 
 st.markdown("""
     <style>
-    .main { background-color: #f8f9fa; }
-    h1 { color: #0d6efd; font-weight: 800; }
-    h2, h3 { color: #343a40; }
+    /* Tipografía global más limpia y profesional */
+    html, body, [class*="css"] {
+        font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+    
+    /* Fondo principal más sobrio */
+    .stApp {
+        background-color: #f4f7f9;
+    }
+    
+    /* Títulos con color corporativo y peso */
+    h1 { 
+        color: #0056b3; /* Azul más oscuro y serio */
+        font-weight: 700; 
+        letter-spacing: -0.5px;
+    }
+    h2, h3 { 
+        color: #2c3e50; 
+        font-weight: 600;
+    }
+    
+    /* Botones modernos y profesionales */
     .stButton>button {
-        background-color: #0d6efd; color: white; border-radius: 8px; 
-        font-weight: bold; width: 100%; height: 3.5em; border: none;
-    }
-    .stButton>button:hover { background-color: #0b5ed7; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
-    .reporte-box {
-        background-color: #ffffff; padding: 20px; border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-left: 6px solid #0d6efd;
-    }
-    .rut-card {
-        background-color: #ffffff; padding: 20px; border-radius: 10px;
-        border-left: 5px solid #1565c0; color: #343a40;
+        background-color: #0056b3; 
+        color: white; 
+        border-radius: 8px; 
+        font-weight: 600; 
+        width: 100%; 
+        height: 3.2em; 
+        border: none;
+        transition: all 0.3s ease;
         box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     }
-    .metric-box-red { background-color: #f8d7da; padding: 10px; border-radius: 5px; color: #721c24; text-align: center; }
-    .metric-box-green { background-color: #d1e7dd; padding: 10px; border-radius: 5px; color: #0f5132; text-align: center; }
+    .stButton>button:hover { 
+        background-color: #004494; 
+        box-shadow: 0 4px 10px rgba(0,50,150,0.2);
+        transform: translateY(-1px);
+    }
     
-    /* VISIBILIDAD DE TEXTO */
+    /* Tarjetas con sombras suaves (Card Design) */
+    .reporte-box, .rut-card, .tutorial-step {
+        background-color: #ffffff; 
+        padding: 25px; 
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08); /* Sombra suave */
+        border: none;
+        margin-bottom: 20px;
+    }
+    .reporte-box { border-left: 5px solid #0056b3; }
+    .rut-card { border-left: 5px solid #28a745; } /* Verde para éxito */
+    .tutorial-step { border: 1px solid #e9ecef; }
+
+    /* --- CORRECCIÓN CRÍTICA: CAJAS DE INSTRUCCIÓN --- */
+    /* Forzamos colores oscuros para que SIEMPRE se lean */
     .instruccion-box {
-        background-color: #e2e3e5; 
-        color: #212529 !important; 
-        padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 5px solid #343a40;
+        background-color: #e9ecef; /* Gris claro elegante */
+        border-left: 5px solid #0056b3;
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 25px;
     }
-    .instruccion-box h4 { color: #000000 !important; margin-top: 0; font-weight: bold; }
-    .instruccion-box p, .instruccion-box li { color: #212529 !important; }
+    .instruccion-box h4 { 
+        color: #0056b3 !important; /* Título azul oscuro */
+        margin-top: 0; 
+        font-weight: 700; 
+        font-size: 1.1rem;
+    }
+    .instruccion-box p, .instruccion-box li, .instruccion-box ol { 
+        color: #343a40 !important; /* Texto gris oscuro (casi negro) */
+        line-height: 1.6;
+        font-size: 0.95rem;
+    }
+    /* -------------------------------------------------- */
+
+    /* Alertas y métricas profesionales */
+    .metric-box-red { background-color: #fee2e2; padding: 15px; border-radius: 8px; color: #991b1b; text-align: center; font-weight: 600; border: 1px solid #f87171; }
+    .metric-box-green { background-color: #d1fae5; padding: 15px; border-radius: 8px; color: #065f46; text-align: center; font-weight: 600; border: 1px solid #34d399; }
     
-    /* Estilo para el tutorial */
-    .tutorial-step {
-        background-color: #fff; padding: 15px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #dee2e6;
-    }
+    /* Enlaces */
+    a { color: #0056b3; text-decoration: none; font-weight: 600; }
+    a:hover { text-decoration: underline; color: #004494; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -171,14 +219,13 @@ def parsear_xml_dian(archivo_xml):
         return {"Archivo": archivo_xml.name, "Error": "Error XML"}
 
 # ==============================================================================
-# 4. BARRA LATERAL (MENÚ ORGANIZADO POR IMPORTANCIA)
+# 4. BARRA LATERAL (MENÚ ORGANIZADO)
 # ==============================================================================
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/9320/9320399.png", width=80)
     st.title("Suite Contable IA")
     st.markdown("---")
     
-    # NUEVO ORDEN LÓGICO: Inicio -> Operativo Diario (Masivo) -> Análisis -> Consultas
     opciones_menu = [
         "🏠 Inicio / Quiénes Somos",
         "📧 Lector XML (Facturación)",
@@ -205,7 +252,7 @@ with st.sidebar:
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
-# 0. INICIO / QUIÉNES SOMOS (NUEVA PESTAÑA)
+# 0. INICIO / QUIÉNES SOMOS
 # ------------------------------------------------------------------------------
 if menu == "🏠 Inicio / Quiénes Somos":
     st.header("👋 Bienvenido a tu Asistente Contable 4.0")
@@ -220,20 +267,24 @@ if menu == "🏠 Inicio / Quiénes Somos":
         Nuestra misión es eliminar el "trabajo de carpintería" (digitar, puntear, revisar manualmente) usando la potencia de la **Inteligencia Artificial** y la automatización.
         
         ### 🛠️ ¿Qué hace esta aplicación?
-        Esta Suite integra más de 9 herramientas especializadas para:
+        Esta Suite integra herramientas especializadas para:
         * **Automatizar:** Lectura de Facturas Electrónicas (XML) y Conciliación Bancaria.
         * **Auditar:** Revisión masiva de gastos (Art 771-5) y Nómina (UGPP).
         * **Prevenir:** Alertas de liquidez y validación de terceros (RUT).
         """)
         
     with col_intro2:
-        st.info("""
-        ### 💡 ¿Cómo funciona?
-        La mayoría de módulos funcionan con **cargas masivas de Excel**.
-        1. Descargas el reporte de tu software (Siigo, World Office, etc.).
-        2. Lo subes aquí.
-        3. La IA analiza y te entrega un reporte de auditoría listo.
-        """)
+        st.markdown("""
+        <div class='instruccion-box'>
+            <h4>💡 ¿Cómo funciona?</h4>
+            <p>La mayoría de módulos funcionan con <strong>cargas masivas de Excel</strong>.</p>
+            <ol>
+                <li>Descargas el reporte de tu software (Siigo, World Office, etc.).</li>
+                <li>Lo subes al módulo correspondiente.</li>
+                <li>La IA analiza y te entrega un reporte de auditoría listo.</li>
+            </ol>
+        </div>
+        """, unsafe_allow_html=True)
 
     st.markdown("---")
     
@@ -267,7 +318,7 @@ if menu == "🏠 Inicio / Quiénes Somos":
         """, unsafe_allow_html=True)
 
 # ------------------------------------------------------------------------------
-# 1. LECTOR XML (ALTA PRIORIDAD)
+# 1. LECTOR XML
 # ------------------------------------------------------------------------------
 elif menu == "📧 Lector XML (Facturación)":
     st.header("📧 Extractor Masivo XML")
@@ -286,7 +337,7 @@ elif menu == "📧 Lector XML (Facturación)":
         st.download_button("📥 Descargar Excel", out.getvalue(), "Resumen_XML.xlsx")
 
 # ------------------------------------------------------------------------------
-# 2. CONCILIADOR BANCARIO (ALTA PRIORIDAD)
+# 2. CONCILIADOR BANCARIO
 # ------------------------------------------------------------------------------
 elif menu == "🤝 Conciliador Bancario (IA)":
     st.header("🤝 Conciliador Bancario Automático")
@@ -393,6 +444,9 @@ elif menu == "💰 Tesorería & Flujo de Caja":
                 cal['Saldo'] = saldo_hoy + (cal['Ing'] - cal['Egr']).cumsum()
                 st.line_chart(cal.set_index('Fecha')['Saldo'])
                 st.dataframe(cal)
+                if api_key:
+                    with st.spinner("IA Analizando..."):
+                        st.markdown(consultar_ia_gemini(f"Analiza flujo caja. Saldo ini: {saldo_hoy}. Datos: {cal.head(10).to_string()}"))
             except: st.error("Error en fechas")
 
 # ------------------------------------------------------------------------------
