@@ -4,169 +4,163 @@ from PIL import Image
 import pandas as pd
 import json
 import time
+import io
 
 # --- 1. CONFIGURACIÓN VISUAL ---
-st.set_page_config(page_title="ContadorIA Bulk", page_icon="⚡", layout="wide")
+st.set_page_config(page_title="ContadorIA Pro", page_icon="💼", layout="wide")
 
 def local_css():
     st.markdown("""
         <style>
         html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
         .stButton>button {
-            background: linear-gradient(90deg, #8B5CF6 0%, #6366F1 100%);
+            background: linear-gradient(90deg, #2563EB 0%, #1E40AF 100%);
             color: white; border: none; padding: 0.6rem 1.2rem;
-            border-radius: 10px; font-weight: 600; width: 100%;
+            border-radius: 8px; font-weight: 600; width: 100%;
         }
-        /* Estilo para la barra de progreso */
-        .stProgress > div > div > div > div {
-            background-color: #8B5CF6;
+        .audit-box {
+            padding: 15px; border-radius: 10px; margin-bottom: 10px;
+            border-left: 5px solid #ccc; background-color: #f8f9fa;
         }
+        .risk-high { border-left-color: #ef4444; background-color: #fef2f2; }
+        .risk-medium { border-left-color: #f59e0b; background-color: #fffbeb; }
+        .risk-low { border-left-color: #10b981; background-color: #ecfdf5; }
         </style>
         """, unsafe_allow_html=True)
 local_css()
 
-st.title("⚡ ContadorIA - Procesamiento en Lote")
-st.markdown("### Sube hasta 10 facturas y procésalas automáticamente.")
-st.markdown("---")
-
 # --- BARRA LATERAL ---
 with st.sidebar:
-    st.header("⚙️ Configuración")
-    api_key_input = st.text_input("🔑 API Key de Google", type="password")
+    st.image("https://cdn-icons-png.flaticon.com/512/2830/2830305.png", width=80)
+    st.title("ContadorIA Suite")
+    st.markdown("---")
+    api_key_input = st.text_input("🔑 Tu API Key de Google", type="password")
     api_key = api_key_input.strip() if api_key_input else None
     
     if api_key:
-        st.success("Sistema Activo")
-    
-    st.info("💡 Nota: El límite de 10 es para proteger la cuota gratuita de Google.")
+        genai.configure(api_key=api_key)
+        st.success("Sistema Conectado")
+    else:
+        st.warning("Ingresa la Key para activar el cerebro.")
+
+    st.markdown("---")
+    st.markdown("### Herramientas:")
+    st.markdown("- **Digitalizador:** Pasa fotos a Excel.")
+    st.markdown("- **Auditoría:** Detecta riesgos fiscales.")
 
 # --- FUNCIÓN INTELIGENTE DE AUTO-DETECCIÓN ---
 def encontrar_modelo_disponible():
     try:
         modelos = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        preferidos = ['models/gemini-1.5-flash', 'models/gemini-1.5-flash-001', 'models/gemini-1.5-pro']
-        
+        preferidos = ['models/gemini-1.5-flash', 'models/gemini-1.5-pro', 'models/gemini-pro-vision']
         for pref in preferidos:
             if pref in modelos: return pref
-            
-        # Fallback a cualquier modelo de visión
-        return next((m for m in modelos if 'vision' in m), modelos[0] if modelos else None)
+        return modelos[0] if modelos else None
     except:
         return None
 
-# --- LÓGICA PRINCIPAL ---
-if not api_key:
-    st.warning("👈 Ingresa tu API Key a la izquierda para comenzar.")
-else:
-    genai.configure(api_key=api_key)
-    
-    # 1. CARGA MÚLTIPLE (accept_multiple_files=True)
-    archivos = st.file_uploader(
-        "Arrastra tus facturas aquí (Máx 10)", 
-        type=["jpg", "png", "jpeg"], 
-        accept_multiple_files=True
-    )
+# --- ESTRUCTURA DE PESTAÑAS ---
+tab1, tab2 = st.tabs(["📤 Digitalizador de Facturas", "🕵️ Auditor de Riesgos (NUEVO)"])
 
-    if archivos:
-        cantidad = len(archivos)
-        
-        # Validación del límite
-        if cantidad > 10:
-            st.error(f"⚠️ Has subido {cantidad} archivos. El límite es 10 por seguridad. Por favor elimina algunos.")
-        else:
-            st.info(f"📂 {cantidad} facturas listas para procesar.")
-            
-            # Botón de Acción
-            if st.button(f"🚀 Procesar {cantidad} Facturas Ahora"):
-                
+# ==========================================
+# PESTAÑA 1: TU CÓDIGO ORIGINAL (MEJORADO)
+# ==========================================
+with tab1:
+    st.header("⚡ Digitalización Masiva")
+    st.markdown("Sube tus facturas (imágenes) y obtén el Excel consolidado.")
+
+    if not api_key:
+        st.info("👈 Conecta la API Key primero.")
+    else:
+        archivos = st.file_uploader("Arrastra facturas aquí (Máx 10)", type=["jpg", "png", "jpeg"], accept_multiple_files=True)
+
+        if archivos:
+            if st.button(f"Procesar {len(archivos)} Facturas"):
                 nombre_modelo = encontrar_modelo_disponible()
-                if not nombre_modelo:
-                    st.error("No se encontró un modelo IA disponible.")
-                    st.stop()
-                
                 model = genai.GenerativeModel(nombre_modelo)
                 resultados = []
-                errores = 0
                 
-                # BARRA DE PROGRESO
-                barra_progreso = st.progress(0)
-                status_text = st.empty()
+                barra = st.progress(0)
                 
-                # --- BUCLE DE PROCESAMIENTO ---
                 for i, archivo in enumerate(archivos):
-                    # Actualizar barra
-                    progreso = (i + 1) / cantidad
-                    barra_progreso.progress(progreso)
-                    status_text.text(f"Analizando factura {i+1} de {cantidad}: {archivo.name}...")
-                    
+                    barra.progress((i + 1) / len(archivos))
                     try:
                         image = Image.open(archivo)
-                        
                         prompt = """
-                        Analiza esta factura y extrae datos en JSON puro:
-                        {"fecha": "YYYY-MM-DD", "proveedor": "texto", "nit": "texto", "total": numero, "iva": numero}
-                        Si falta un dato usa null.
+                        Analiza esta factura colombiana. Extrae JSON:
+                        {"fecha": "YYYY-MM-DD", "proveedor": "texto", "nit": "texto", "concepto": "resumen corto", "total": numero, "iva": numero}
                         """
-                        
                         response = model.generate_content([prompt, image])
-                        texto_limpio = response.text.replace("```json", "").replace("```", "")
-                        datos = json.loads(texto_limpio)
-                        
-                        # Agregamos el nombre del archivo para identificarlo
-                        datos["archivo_origen"] = archivo.name
-                        resultados.append(datos)
-                        
-                        # Pequeña pausa para no saturar la API gratuita
-                        time.sleep(1) 
-                        
+                        # Limpieza básica del JSON
+                        txt = response.text.replace("```json", "").replace("```", "").strip()
+                        data = json.loads(txt)
+                        data["archivo"] = archivo.name
+                        resultados.append(data)
+                        time.sleep(1) # Respetar límites
                     except Exception as e:
-                        errores += 1
-                        resultados.append({
-                            "archivo_origen": archivo.name,
-                            "proveedor": "ERROR DE LECTURA",
-                            "total": 0,
-                            "nota_error": str(e)
-                        })
+                        resultados.append({"archivo": archivo.name, "proveedor": "ERROR", "nota": str(e)})
+
+                st.success("¡Procesado!")
                 
-                status_text.text("¡Procesamiento finalizado!")
-                st.balloons()
-                
-                # --- RESULTADOS CONSOLIDADOS ---
-                st.divider()
-                st.subheader("📊 Tabla Maestra de Gastos")
-                
-                if errores > 0:
-                    st.warning(f"Hubo {errores} errores al leer archivos. Revisa la tabla.")
-                
-                # Crear DataFrame con TODOS los datos
+                # Mostrar Tabla
                 df = pd.DataFrame(resultados)
+                st.data_editor(df, use_container_width=True)
                 
-                # Reordenar columnas para que 'archivo_origen' salga primero
-                cols = ['archivo_origen'] + [c for c in df.columns if c != 'archivo_origen']
-                df = df[cols]
-                
-                # Editor de datos
-                df_editado = st.data_editor(
-                    df, 
-                    num_rows="dynamic", 
-                    use_container_width=True,
-                    key="editor_datos"
-                )
-                
-                # Métricas Totales del Lote
-                total_lote = df_editado["total"].sum()
-                iva_lote = df_editado["iva"].sum()
-                
-                c1, c2 = st.columns(2)
-                c1.metric("💰 Total del Lote", f"${total_lote:,.2f}")
-                c2.metric("🧾 IVA Total Recuperable", f"${iva_lote:,.2f}")
-                
-                # Descarga ÚNICA
-                csv = df_editado.to_csv(index=False).encode('utf-8')
-                st.download_button(
-                    label="📥 Descargar Reporte Consolidado (Excel/CSV)",
-                    data=csv,
-                    file_name="reporte_gastos_lote.csv",
-                    mime="text/csv",
-                    type="primary"
-                )
+                # Descargar
+                csv = df.to_csv(index=False).encode('utf-8')
+                st.download_button("📥 Descargar Excel/CSV", data=csv, file_name="gastos_procesados.csv", mime="text/csv")
+
+# ==========================================
+# PESTAÑA 2: LA INNOVACIÓN (AUDITOR IA)
+# ==========================================
+with tab2:
+    st.header("🕵️ Auditoría Tributaria Preventiva")
+    st.markdown("""
+    **¿Dudas si un gasto es deducible?** ¿No sabes qué retención aplicar? 
+    Pregúntale al Auditor IA antes de registrarlo en Siigo y evita sanciones.
+    """)
+
+    col1, col2 = st.columns([1, 1])
+    
+    with col1:
+        st.subheader("Consulta Rápida")
+        caso_usuario = st.text_area("Describe el gasto o la situación:", 
+                                   placeholder="Ej: Voy a pagar una factura de $500.000 por 'Atenciones a clientes' (almuerzo) a un restaurante régimen simple. ¿Es deducible? ¿Qué retención aplico?",
+                                   height=150)
+        
+        analizar_btn = st.button("🔍 Auditar Caso")
+
+    with col2:
+        st.subheader("Dictamen del Auditor IA")
+        if analizar_btn and api_key and caso_usuario:
+            with st.spinner("Consultando Estatuto Tributario..."):
+                try:
+                    modelo_txt = 'models/gemini-1.5-flash'
+                    model_audit = genai.GenerativeModel(modelo_txt)
+                    
+                    prompt_audit = f"""
+                    Actúa como un Auditor Tributario Experto de Colombia (DIAN).
+                    Analiza el siguiente caso: "{caso_usuario}"
+                    
+                    Responde en este formato estricto:
+                    1. **Veredicto:** (Deducible / No Deducible / Riesgoso)
+                    2. **Retención en la Fuente:** (Indica el % y el concepto exacto según tabla 2024/2025)
+                    3. **Cuenta Contable Sugerida (PUC):** (Código y nombre)
+                    4. **Justificación Legal:** (Cita artículos del Estatuto Tributario brevemente)
+                    
+                    Sé directo y profesional.
+                    """
+                    
+                    respuesta = model_audit.generate_content(prompt_audit)
+                    st.markdown(respuesta.text)
+                    
+                except Exception as e:
+                    st.error(f"Error en consulta: {e}")
+        elif analizar_btn and not api_key:
+            st.error("Falta la API Key")
+        else:
+            st.info("Los resultados aparecerán aquí.")
+
+    st.markdown("---")
+    st.markdown("### 📊 O carga un listado de gastos (Excel) para auditar masivamente")
+    st.caption("Próximamente: Sube tu 'Auxiliar de Gastos' y detectaremos anomalías automáticamente.")
