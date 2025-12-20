@@ -9,64 +9,89 @@ from datetime import datetime, timedelta
 import xml.etree.ElementTree as ET
 
 # ==============================================================================
-# 1. CONFIGURACIÓN VISUAL (VOLVIMOS AL COLOR ORIGINAL + ARREGLO DE TEXTO)
+# 1. CONFIGURACIÓN VISUAL (FONDO UNIFICADO Y TEXTO VISIBLE)
 # ==============================================================================
 st.set_page_config(page_title="Asistente Contable Pro 2025", page_icon="📊", layout="wide")
 
 st.markdown("""
     <style>
-    .main { background-color: #f8f9fa; }
-    
-    /* 1. VOLVIMOS AL AZUL ORIGINAL (Brillante) */
-    h1 { color: #0d6efd; font-weight: 800; }
-    h2, h3 { color: #343a40; }
-    
-    /* 2. BOTONES ORIGINALES */
-    .stButton>button {
-        background-color: #0d6efd; 
-        color: white; 
-        border-radius: 8px; 
-        font-weight: bold; 
-        width: 100%; 
-        height: 3.5em; 
-        border: none;
-    }
-    .stButton>button:hover { 
-        background-color: #0b5ed7; 
-        box-shadow: 0 4px 8px rgba(0,0,0,0.2); 
+    /* 1. FORZAR FONDO CLARO Y TEXTO OSCURO EN TODA LA APP */
+    .stApp {
+        background-color: #f4f6f9 !important; /* Fondo gris muy suave profesional */
+        color: #212529 !important; /* Texto Gris Oscuro (Casi negro) */
     }
     
-    /* 3. TARJETAS Y CAJAS */
-    .reporte-box {
-        background-color: #ffffff; padding: 20px; border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-left: 6px solid #0d6efd;
+    /* 2. FUENTE UNIFICADA */
+    html, body, [class*="css"] {
+        font-family: 'Segoe UI', Helvetica, Arial, sans-serif;
     }
-    .rut-card {
-        background-color: #ffffff; padding: 20px; border-radius: 10px;
-        border-left: 5px solid #1565c0; color: #343a40;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    }
-    .metric-box-red { background-color: #f8d7da; padding: 10px; border-radius: 5px; color: #721c24; text-align: center; }
-    .metric-box-green { background-color: #d1e7dd; padding: 10px; border-radius: 5px; color: #0f5132; text-align: center; }
-    .tutorial-step { background-color: #fff; padding: 15px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #dee2e6; }
 
-    /* 4. ¡AQUÍ ESTÁ EL ARREGLO! FORZAMOS LETRA NEGRA EN INSTRUCCIONES */
+    /* 3. TÍTULOS (AZUL ORIGINAL) */
+    h1 { color: #0d6efd !important; font-weight: 800; }
+    h2, h3 { color: #343a40 !important; font-weight: 700; }
+    
+    /* 4. CAJA DE INSTRUCCIONES (CORREGIDA: MISMO FONDO DE PÁGINA) */
     .instruccion-box {
-        background-color: #e2e3e5; 
-        color: #212529 !important; /* IMPORTANTE: Esto fuerza el color negro */
-        padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 5px solid #343a40;
-    }
-    .instruccion-box h4 { 
-        color: #000000 !important; /* Título negro */
-        margin-top: 0; font-weight: bold; 
-    }
-    .instruccion-box p, .instruccion-box li, .instruccion-box ol { 
-        color: #212529 !important; /* Texto del párrafo negro */
+        background-color: transparent !important; /* Fondo transparente (igual a la página) */
+        color: #212529 !important; /* Texto oscuro */
+        border-left: 5px solid #0d6efd; /* Solo una línea azul al lado para decorar */
+        padding: 15px;
+        margin-bottom: 25px;
     }
     
-    /* Enlaces */
-    a { color: #0d6efd; text-decoration: none; font-weight: bold; }
-    a:hover { text-decoration: underline; }
+    /* Asegurar que los títulos y textos dentro de la caja sean visibles */
+    .instruccion-box h4 {
+        color: #0d6efd !important; /* Título de la instrucción en azul */
+        margin-top: 0;
+        font-weight: bold;
+    }
+    .instruccion-box p, .instruccion-box li {
+        color: #212529 !important; /* Texto del cuerpo oscuro */
+        font-size: 16px;
+    }
+
+    /* 5. TARJETAS DE RESULTADOS (RUT, ETC) */
+    .rut-card, .reporte-box {
+        background-color: #ffffff !important; /* Estas sí blancas para resaltar el resultado */
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        border-left: 5px solid #28a745; /* Verde éxito */
+        margin-bottom: 20px;
+    }
+    .rut-card h2, .rut-card h3, .rut-card p {
+        color: #212529 !important;
+    }
+
+    /* 6. BOTONES (AZUL ORIGINAL) */
+    .stButton>button {
+        background-color: #0d6efd !important;
+        color: white !important;
+        border-radius: 8px;
+        font-weight: bold;
+        border: none;
+        height: 3em;
+        width: 100%;
+    }
+    .stButton>button:hover {
+        background-color: #0b5ed7 !important;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    /* 7. ALERTA ROJA/VERDE (TEXTO VISIBLE) */
+    .metric-box-red { 
+        background-color: #f8d7da !important; 
+        color: #721c24 !important; 
+        padding: 10px; border-radius: 5px; text-align: center; border: 1px solid #f5c6cb;
+    }
+    .metric-box-green { 
+        background-color: #d1e7dd !important; 
+        color: #0f5132 !important; 
+        padding: 10px; border-radius: 5px; text-align: center; border: 1px solid #c3e6cb;
+    }
+    
+    /* 8. LINKS */
+    a { color: #0d6efd !important; text-decoration: none; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -264,29 +289,13 @@ if menu == "🏠 Inicio / Quiénes Somos":
     
     c1, c2, c3 = st.columns(3)
     with c1:
-        st.markdown("""
-        <div class='tutorial-step'>
-        <h4>Paso 1:</h4>
-        <p>Ingresa a <strong>Google AI Studio</strong> con tu cuenta de Gmail.</p>
-        <p><a href='https://aistudio.google.com/app/apikey' target='_blank'>🔗 Ir a Google AI Studio</a></p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.info("**Paso 1:** Ingresa a Google AI Studio con tu Gmail.\n\n[🔗 Ir a Google AI Studio](https://aistudio.google.com/app/apikey)")
     
     with c2:
-        st.markdown("""
-        <div class='tutorial-step'>
-        <h4>Paso 2:</h4>
-        <p>Haz clic en el botón azul grande que dice <strong>"Create API Key"</strong> (Crear clave de API).</p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.info("**Paso 2:** Haz clic en el botón azul grande que dice **'Create API Key'**.")
         
     with c3:
-        st.markdown("""
-        <div class='tutorial-step'>
-        <h4>Paso 3:</h4>
-        <p>Copia el código largo que empieza por "AIza..." y pégalo en el menú de la izquierda de esta app donde dice <strong>"Configuración IA"</strong>.</p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.info("**Paso 3:** Copia el código largo (AIza...) y pégalo en el menú izquierdo de esta app.")
 
 # ------------------------------------------------------------------------------
 # 1. LECTOR XML
@@ -511,7 +520,7 @@ elif menu == "🔍 Validador de RUT (Real)":
     nit = st.text_input("NIT (Sin DV):", max_chars=15)
     if st.button("CALCULAR") and nit:
         dv = calcular_dv_colombia(nit)
-        st.markdown(f"<div class='rut-card'><h3>NIT: {nit}-{dv}</h3></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='rut-card'><h2>NIT: {nit}-{dv}</h2></div>", unsafe_allow_html=True)
         st.link_button("🔗 Verificar en DIAN", "https://muisca.dian.gov.co/WebRutMuisca/DefConsultaEstadoRUT.faces")
 
 # ------------------------------------------------------------------------------
