@@ -34,9 +34,19 @@ st.markdown("""
     /* Estilos Tesorería */
     .metric-box-red { background-color: #f8d7da; padding: 10px; border-radius: 5px; color: #721c24; text-align: center; }
     .metric-box-green { background-color: #d1e7dd; padding: 10px; border-radius: 5px; color: #0f5132; text-align: center; }
-    /* Estilos Instrucciones */
+    
+    /* --- CORRECCIÓN AQUÍ: TEXTO VISIBLE EN MODO OSCURO --- */
     .instruccion-box {
-        background-color: #e2e3e5; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 5px solid #343a40;
+        background-color: #e2e3e5; 
+        color: #343a40; /* Forzamos color de letra oscuro */
+        padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 5px solid #343a40;
+    }
+    .instruccion-box h4 {
+        color: #343a40; /* Título también oscuro */
+        margin-top: 0;
+    }
+    .instruccion-box p, .instruccion-box li {
+        color: #343a40; /* Párrafos y listas oscuros */
     }
     </style>
     """, unsafe_allow_html=True)
@@ -178,16 +188,11 @@ if menu == "💰 Tesorería & Flujo de Caja":
     </div>
     """, unsafe_allow_html=True)
     
-    # 1. Saldo Inicial
     saldo_hoy = st.number_input("💵 Saldo Disponible en Bancos HOY ($):", min_value=0.0, step=100000.0, format="%.2f")
-    
     col_up1, col_up2 = st.columns(2)
-    
-    # 2. Carga de Archivos
     with col_up1:
         st.subheader("📥 Cuentas por Cobrar (Cartera)")
         file_cxc = st.file_uploader("Subir Excel CxC", type=['xlsx'])
-    
     with col_up2:
         st.subheader("📤 Cuentas por Pagar (Proveedores)")
         file_cxp = st.file_uploader("Subir Excel CxP", type=['xlsx'])
@@ -195,38 +200,27 @@ if menu == "💰 Tesorería & Flujo de Caja":
     if file_cxc and file_cxp:
         df_cxc = pd.read_excel(file_cxc)
         df_cxp = pd.read_excel(file_cxp)
-        
         st.write("---")
         st.subheader("⚙️ Configuración de Columnas")
         c1, c2, c3, c4 = st.columns(4)
         col_fecha_cxc = c1.selectbox("Fecha Vencimiento (CxC):", df_cxc.columns, key="f_cxc")
         col_valor_cxc = c2.selectbox("Valor a Cobrar:", df_cxc.columns, key="v_cxc")
-        
         col_fecha_cxp = c3.selectbox("Fecha Vencimiento (CxP):", df_cxp.columns, key="f_cxp")
         col_valor_cxp = c4.selectbox("Valor a Pagar:", df_cxp.columns, key="v_cxp")
         
         if st.button("🚀 PROYECTAR FLUJO DE CAJA"):
             try:
-                # Estandarizar Fechas
                 df_cxc['Fecha'] = pd.to_datetime(df_cxc[col_fecha_cxc])
                 df_cxp['Fecha'] = pd.to_datetime(df_cxp[col_fecha_cxp])
-                
-                # Agrupar por día
                 flujo_ingresos = df_cxc.groupby('Fecha')[col_valor_cxc].sum().reset_index()
                 flujo_egresos = df_cxp.groupby('Fecha')[col_valor_cxp].sum().reset_index()
-                
-                # Unir en un solo calendario
                 calendario = pd.merge(flujo_ingresos, flujo_egresos, on='Fecha', how='outer').fillna(0)
                 calendario.columns = ['Fecha', 'Ingresos', 'Egresos']
                 calendario = calendario.sort_values('Fecha')
-                
-                # Calcular Saldo Acumulado Diario
                 calendario['Flujo Neto'] = calendario['Ingresos'] - calendario['Egresos']
                 calendario['Saldo Proyectado'] = saldo_hoy + calendario['Flujo Neto'].cumsum()
                 
-                # --- VISUALIZACIÓN ---
                 st.subheader("📈 Proyección de Liquidez (Próximos 30 días)")
-                
                 st.line_chart(calendario.set_index('Fecha')['Saldo Proyectado'])
                 
                 minimo_saldo = calendario['Saldo Proyectado'].min()
@@ -235,7 +229,6 @@ if menu == "💰 Tesorería & Flujo de Caja":
                 m1, m2, m3 = st.columns(3)
                 m1.metric("Ingresos Proyectados", f"${calendario['Ingresos'].sum():,.0f}")
                 m2.metric("Egresos Proyectados", f"${calendario['Egresos'].sum():,.0f}")
-                
                 if minimo_saldo < 0:
                     m3.markdown(f"<div class='metric-box-red'>🚨 DÉFICIT DETECTADO<br>Fecha Crítica: {fecha_quiebre.date()}</div>", unsafe_allow_html=True)
                 else:
@@ -248,19 +241,11 @@ if menu == "💰 Tesorería & Flujo de Caja":
                     st.write("---")
                     st.subheader("🧠 Estrategia de Tesorería (IA)")
                     resumen_flujo = calendario.head(15).to_string()
-                    prompt_tesoreria = f"""
-                    Actúa como Gerente Financiero Experto.
-                    Analiza este flujo de caja proyectado. Saldo Inicial: ${saldo_hoy:,.0f}
-                    Datos: {resumen_flujo}
-                    1. ¿Hay riesgo de iliquidez?
-                    2. Sugiere estrategia de pagos.
-                    """
-                    with st.spinner("Analizando la mejor estrategia financiera..."):
-                        consejo = consultar_ia_gemini(prompt_tesoreria)
-                        st.markdown(consejo)
-                        
+                    prompt_tesoreria = f"""Actúa como Gerente Financiero. Analiza flujo. Saldo Ini: ${saldo_hoy:,.0f}. Datos: {resumen_flujo}. ¿Riesgos? Sugerencias."""
+                    with st.spinner("Analizando..."):
+                        st.markdown(consultar_ia_gemini(prompt_tesoreria))
             except Exception as e:
-                st.error(f"Error al procesar fechas o valores. Detalle: {e}")
+                st.error(f"Error: {e}")
 
 # ------------------------------------------------------------------------------
 # MÓDULO: BUSCADOR DE RUT (ANTERIOR)
