@@ -15,87 +15,76 @@ st.set_page_config(page_title="Asistente Contable Pro 2025", page_icon="📊", l
 
 st.markdown("""
     <style>
-    /* Tipografía global más limpia y profesional */
+    /* 1. FUENTE GLOBAL LIMPIA */
     html, body, [class*="css"] {
-        font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        font-family: 'Segoe UI', Helvetica, Arial, sans-serif;
     }
     
-    /* Fondo principal más sobrio */
+    /* 2. FONDO DE LA APLICACIÓN (Gris muy suave para descansar la vista) */
     .stApp {
-        background-color: #f4f7f9;
+        background-color: #f8f9fa;
     }
     
-    /* Títulos con color corporativo y peso */
-    h1 { 
-        color: #0056b3; /* Azul más oscuro y serio */
-        font-weight: 700; 
-        letter-spacing: -0.5px;
-    }
-    h2, h3 { 
-        color: #2c3e50; 
-        font-weight: 600;
+    /* 3. TÍTULOS (Azul Corporativo) */
+    h1 { color: #004085 !important; font-weight: 800; }
+    h2 { color: #343a40 !important; font-weight: 700; }
+    h3 { color: #495057 !important; font-weight: 600; }
+    
+    /* 4. CAJAS DE INSTRUCCIONES Y TARJETAS (SOLUCIÓN TEXTO INVISIBLE) */
+    .instruccion-box, .rut-card, .tutorial-step, .reporte-box {
+        background-color: #ffffff !important; /* Fondo Blanco Puro */
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05); /* Sombra suave elegante */
     }
     
-    /* Botones modernos y profesionales */
+    /* BORDE IZQUIERDO DE ACENTO */
+    .instruccion-box { border-left: 5px solid #0056b3; }
+    .rut-card { border-left: 5px solid #28a745; }
+    .reporte-box { border-left: 5px solid #17a2b8; }
+
+    /* ¡AQUÍ ESTÁ LA CORRECCIÓN! FORZAMOS TEXTO NEGRO */
+    .instruccion-box h4, .rut-card h3, .tutorial-step h4 {
+        color: #0056b3 !important; /* Títulos Azules */
+        margin-top: 0;
+    }
+    .instruccion-box p, .instruccion-box li, .instruccion-box ol, 
+    .rut-card p, .tutorial-step p, .reporte-box p {
+        color: #212529 !important; /* TEXTO GRIS OSCURO (CASI NEGRO) SIEMPRE */
+        font-size: 16px;
+        line-height: 1.6;
+    }
+
+    /* 5. BOTONES PROFESIONALES */
     .stButton>button {
         background-color: #0056b3; 
         color: white; 
-        border-radius: 8px; 
-        font-weight: 600; 
-        width: 100%; 
-        height: 3.2em; 
         border: none;
-        transition: all 0.3s ease;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        border-radius: 6px;
+        font-weight: 600;
+        padding: 0.5rem 1rem;
+        transition: background-color 0.3s;
     }
-    .stButton>button:hover { 
-        background-color: #004494; 
-        box-shadow: 0 4px 10px rgba(0,50,150,0.2);
-        transform: translateY(-1px);
+    .stButton>button:hover {
+        background-color: #003d82; /* Azul más oscuro al pasar mouse */
+        color: white;
     }
     
-    /* Tarjetas con sombras suaves (Card Design) */
-    .reporte-box, .rut-card, .tutorial-step {
-        background-color: #ffffff; 
-        padding: 25px; 
-        border-radius: 12px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.08); /* Sombra suave */
-        border: none;
-        margin-bottom: 20px;
-    }
-    .reporte-box { border-left: 5px solid #0056b3; }
-    .rut-card { border-left: 5px solid #28a745; } /* Verde para éxito */
-    .tutorial-step { border: 1px solid #e9ecef; }
-
-    /* --- CORRECCIÓN CRÍTICA: CAJAS DE INSTRUCCIÓN --- */
-    /* Forzamos colores oscuros para que SIEMPRE se lean */
-    .instruccion-box {
-        background-color: #e9ecef; /* Gris claro elegante */
-        border-left: 5px solid #0056b3;
-        padding: 20px;
-        border-radius: 10px;
-        margin-bottom: 25px;
-    }
-    .instruccion-box h4 { 
-        color: #0056b3 !important; /* Título azul oscuro */
-        margin-top: 0; 
-        font-weight: 700; 
-        font-size: 1.1rem;
-    }
-    .instruccion-box p, .instruccion-box li, .instruccion-box ol { 
-        color: #343a40 !important; /* Texto gris oscuro (casi negro) */
-        line-height: 1.6;
-        font-size: 0.95rem;
-    }
-    /* -------------------------------------------------- */
-
-    /* Alertas y métricas profesionales */
-    .metric-box-red { background-color: #fee2e2; padding: 15px; border-radius: 8px; color: #991b1b; text-align: center; font-weight: 600; border: 1px solid #f87171; }
-    .metric-box-green { background-color: #d1fae5; padding: 15px; border-radius: 8px; color: #065f46; text-align: center; font-weight: 600; border: 1px solid #34d399; }
+    /* 6. ENLACES */
+    a { color: #0056b3 !important; text-decoration: none; font-weight: bold; }
+    a:hover { text-decoration: underline; }
     
-    /* Enlaces */
-    a { color: #0056b3; text-decoration: none; font-weight: 600; }
-    a:hover { text-decoration: underline; color: #004494; }
+    /* 7. ALERTAS */
+    .metric-box-red { 
+        background-color: #f8d7da; color: #721c24; 
+        padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #f5c6cb; 
+    }
+    .metric-box-green { 
+        background-color: #d4edda; color: #155724; 
+        padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #c3e6cb; 
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -295,25 +284,25 @@ if menu == "🏠 Inicio / Quiénes Somos":
     with c1:
         st.markdown("""
         <div class='tutorial-step'>
-        <strong>Paso 1:</strong><br>
-        Ingresa a <strong>Google AI Studio</strong> con tu cuenta de Gmail.<br><br>
-        <a href='https://aistudio.google.com/app/apikey' target='_blank'>🔗 Ir a Google AI Studio</a>
+        <h4>Paso 1:</h4>
+        <p>Ingresa a <strong>Google AI Studio</strong> con tu cuenta de Gmail.</p>
+        <p><a href='https://aistudio.google.com/app/apikey' target='_blank'>🔗 Ir a Google AI Studio</a></p>
         </div>
         """, unsafe_allow_html=True)
     
     with c2:
         st.markdown("""
         <div class='tutorial-step'>
-        <strong>Paso 2:</strong><br>
-        Haz clic en el botón azul grande que dice <strong>"Create API Key"</strong> (Crear clave de API).
+        <h4>Paso 2:</h4>
+        <p>Haz clic en el botón azul grande que dice <strong>"Create API Key"</strong> (Crear clave de API).</p>
         </div>
         """, unsafe_allow_html=True)
         
     with c3:
         st.markdown("""
         <div class='tutorial-step'>
-        <strong>Paso 3:</strong><br>
-        Copia el código largo que empieza por "AIza..." y pégalo en el menú de la izquierda de esta app donde dice <strong>"Configuración IA"</strong>.
+        <h4>Paso 3:</h4>
+        <p>Copia el código largo que empieza por "AIza..." y pégalo en el menú de la izquierda de esta app donde dice <strong>"Configuración IA"</strong>.</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -322,7 +311,13 @@ if menu == "🏠 Inicio / Quiénes Somos":
 # ------------------------------------------------------------------------------
 elif menu == "📧 Lector XML (Facturación)":
     st.header("📧 Extractor Masivo XML")
-    st.markdown("""<div class='instruccion-box'><h4>💡 ¿Para qué sirve?</h4><p>Extrae datos de Facturación Electrónica (XML) a Excel en segundos. La verdad legal está en el XML, no en el PDF.</p></div>""", unsafe_allow_html=True)
+    st.markdown("""
+    <div class='instruccion-box'>
+        <h4>💡 ¿Para qué sirve?</h4>
+        <p>Extrae datos de Facturación Electrónica (XML) a Excel en segundos. La verdad legal está en el XML, no en el PDF.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
     archivos_xml = st.file_uploader("Arrastra XMLs (Máx 5GB)", type=['xml'], accept_multiple_files=True)
     if archivos_xml and st.button("🚀 PROCESAR"):
         datos_xml = []
@@ -341,7 +336,13 @@ elif menu == "📧 Lector XML (Facturación)":
 # ------------------------------------------------------------------------------
 elif menu == "🤝 Conciliador Bancario (IA)":
     st.header("🤝 Conciliador Bancario Automático")
-    st.markdown("""<div class='instruccion-box'><h4>💡 ¿Para qué sirve?</h4><p>Cruza automáticamente tu Extracto Bancario vs. Contabilidad y detecta partidas pendientes.</p></div>""", unsafe_allow_html=True)
+    st.markdown("""
+    <div class='instruccion-box'>
+        <h4>💡 ¿Para qué sirve?</h4>
+        <p>Cruza automáticamente tu Extracto Bancario vs. Contabilidad y detecta partidas pendientes.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
     col_banco, col_libro = st.columns(2)
     with col_banco:
         st.subheader("🏦 Extracto")
@@ -383,7 +384,13 @@ elif menu == "🤝 Conciliador Bancario (IA)":
 # ------------------------------------------------------------------------------
 elif menu == "📂 Auditoría Masiva de Gastos":
     st.header("📂 Auditoría Fiscal Masiva")
-    st.markdown("""<div class='instruccion-box'><h4>💡 ¿Para qué sirve?</h4><p>Detecta errores 771-5 (Efectivo) y retenciones en tu auxiliar de gastos.</p></div>""", unsafe_allow_html=True)
+    st.markdown("""
+    <div class='instruccion-box'>
+        <h4>💡 ¿Para qué sirve?</h4>
+        <p>Detecta errores 771-5 (Efectivo) y retenciones en tu auxiliar de gastos.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
     ar = st.file_uploader("Auxiliar (.xlsx)", type=['xlsx'])
     if ar:
         df = pd.read_excel(ar)
@@ -407,7 +414,13 @@ elif menu == "📂 Auditoría Masiva de Gastos":
 # ------------------------------------------------------------------------------
 elif menu == "👥 Escáner de Nómina (UGPP)":
     st.header("👥 Escáner UGPP")
-    st.markdown("""<div class='instruccion-box'><h4>💡 ¿Para qué sirve?</h4><p>Detecta excesos del 40% en pagos no salariales (Ley 1393) para evitar sanciones.</p></div>""", unsafe_allow_html=True)
+    st.markdown("""
+    <div class='instruccion-box'>
+        <h4>💡 ¿Para qué sirve?</h4>
+        <p>Detecta excesos del 40% en pagos no salariales (Ley 1393) para evitar sanciones.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
     an = st.file_uploader("Nómina (.xlsx)", type=['xlsx'])
     if an:
         dn = pd.read_excel(an)
@@ -425,7 +438,13 @@ elif menu == "👥 Escáner de Nómina (UGPP)":
 # ------------------------------------------------------------------------------
 elif menu == "💰 Tesorería & Flujo de Caja":
     st.header("💰 Radar de Liquidez")
-    st.markdown("""<div class='instruccion-box'><h4>💡 ¿Para qué sirve?</h4><p>Proyecta tu flujo de caja cruzando CxC vs CxP para evitar iliquidez.</p></div>""", unsafe_allow_html=True)
+    st.markdown("""
+    <div class='instruccion-box'>
+        <h4>💡 ¿Para qué sirve?</h4>
+        <p>Proyecta tu flujo de caja cruzando CxC vs CxP para evitar iliquidez.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
     saldo_hoy = st.number_input("💵 Saldo Hoy:", min_value=0.0, format="%.2f")
     c1, c2 = st.columns(2)
     fcxc = c1.file_uploader("CxC (.xlsx)", type=['xlsx'])
@@ -454,7 +473,13 @@ elif menu == "💰 Tesorería & Flujo de Caja":
 # ------------------------------------------------------------------------------
 elif menu == "💰 Calculadora Costos (Masiva)":
     st.header("💰 Costos Nómina")
-    st.markdown("""<div class='instruccion-box'><h4>💡 ¿Para qué sirve?</h4><p>Calcula costo real empresa (Prestaciones + Seg. Social + Parafiscales).</p></div>""", unsafe_allow_html=True)
+    st.markdown("""
+    <div class='instruccion-box'>
+        <h4>💡 ¿Para qué sirve?</h4>
+        <p>Calcula costo real empresa (Prestaciones + Seg. Social + Parafiscales).</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
     ac = st.file_uploader("Personal (.xlsx)", type=['xlsx'])
     if ac:
         dc = pd.read_excel(ac)
@@ -473,7 +498,13 @@ elif menu == "💰 Calculadora Costos (Masiva)":
 # ------------------------------------------------------------------------------
 elif menu == "📊 Analítica Financiera":
     st.header("📊 Analítica IA")
-    st.markdown("""<div class='instruccion-box'><h4>💡 ¿Para qué sirve?</h4><p>Diagnóstico financiero automático con IA sobre Balances o Diarios.</p></div>""", unsafe_allow_html=True)
+    st.markdown("""
+    <div class='instruccion-box'>
+        <h4>💡 ¿Para qué sirve?</h4>
+        <p>Diagnóstico financiero automático con IA sobre Balances o Diarios.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
     fi = st.file_uploader("Financieros", type=['xlsx', 'csv'])
     if fi and api_key:
         df = pd.read_csv(fi) if fi.name.endswith('.csv') else pd.read_excel(fi)
@@ -488,11 +519,17 @@ elif menu == "📊 Analítica Financiera":
 # ------------------------------------------------------------------------------
 elif menu == "🔍 Validador de RUT (Real)":
     st.header("🔍 Validación de RUT")
-    st.markdown("""<div class='instruccion-box'><h4>💡 Herramienta Profesional</h4><p>Calcula el DV Real y te lleva a la DIAN para verificar estado.</p></div>""", unsafe_allow_html=True)
+    st.markdown("""
+    <div class='instruccion-box'>
+        <h4>💡 Herramienta Profesional</h4>
+        <p>Calcula el DV Real y te lleva a la DIAN para verificar estado.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
     nit = st.text_input("NIT (Sin DV):", max_chars=15)
     if st.button("CALCULAR") and nit:
         dv = calcular_dv_colombia(nit)
-        st.markdown(f"<div class='rut-card'><h2>NIT: {nit}-{dv}</h2></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='rut-card'><h3>NIT: {nit}-{dv}</h3></div>", unsafe_allow_html=True)
         st.link_button("🔗 Verificar en DIAN", "https://muisca.dian.gov.co/WebRutMuisca/DefConsultaEstadoRUT.faces")
 
 # ------------------------------------------------------------------------------
@@ -500,7 +537,13 @@ elif menu == "🔍 Validador de RUT (Real)":
 # ------------------------------------------------------------------------------
 elif menu == "📸 Digitalización (OCR)":
     st.header("📸 OCR Facturas")
-    st.markdown("""<div class='instruccion-box'><h4>💡 ¿Para qué sirve?</h4><p>Extrae datos de fotos de facturas a Excel usando Visión Artificial.</p></div>""", unsafe_allow_html=True)
+    st.markdown("""
+    <div class='instruccion-box'>
+        <h4>💡 ¿Para qué sirve?</h4>
+        <p>Extrae datos de fotos de facturas a Excel usando Visión Artificial.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
     af = st.file_uploader("Fotos", type=["jpg", "png"], accept_multiple_files=True)
     if af and st.button("PROCESAR") and api_key:
         do = []
