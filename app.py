@@ -31,7 +31,7 @@ except Exception as e:
     gc = None
 
 # ==============================================================================
-# 3. SEGURIDAD Y LOGIN (OAuth)
+# 3. SEGURIDAD Y LOGIN (OAuth) - CORREGIDO
 # ==============================================================================
 try:
     from google_auth_oauthlib.flow import Flow
@@ -42,9 +42,7 @@ except ImportError:
     st.error("⚠️ Faltan librerías. Asegúrate de que requirements.txt tenga: google-auth-oauthlib, google-auth, requests")
     st.stop()
 
-# CONFIGURACIÓN LOGIN
-# Nota: Para el login de usuarios, se sigue requiriendo el archivo o una config adicional.
-CLIENT_SECRET_FILE = "client_secret.json" 
+# URL EXACTA DE TU APP
 REDIRECT_URI = "https://aicontador.streamlit.app"
 
 def check_google_login():
@@ -52,23 +50,44 @@ def check_google_login():
     if st.session_state.get('logged_in') == True:
         return
 
-    # 2. Si NO tiene pase, intentar configurar el flujo
+    # 2. Configurar el flujo usando st.secrets (Más seguro y estable que el archivo .json)
     try:
-        flow = Flow.from_client_secrets_file(
-            CLIENT_SECRET_FILE,
-            scopes=[
-                "openid", 
-                "https://www.googleapis.com/auth/userinfo.email", 
-                "https://www.googleapis.com/auth/userinfo.profile"
-            ],
-            redirect_uri=REDIRECT_URI
-        )
-    except FileNotFoundError:
-        # Si no encuentra el archivo JSON de OAuth, permitimos el acceso (bypass) 
-        # para que la app no se quede en blanco si falta el archivo.
-        st.warning(f"⚠️ El sistema de Login de Usuarios no está activo (Falta {CLIENT_SECRET_FILE}). Se habilitará el acceso libre temporalmente.")
-        st.session_state['logged_in'] = True 
-        return
+        if "client_id" in st.secrets:
+            # Construcción manual de la configuración usando tus Secrets
+            client_config = {
+                "web": {
+                    "client_id": st.secrets["client_id"],
+                    "project_id": st.secrets["project_id"],
+                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                    "token_uri": "https://oauth2.googleapis.com/token",
+                    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+                    "client_secret": st.secrets["client_secret"],
+                    "redirect_uris": [REDIRECT_URI]
+                }
+            }
+            flow = Flow.from_client_config(
+                client_config,
+                scopes=[
+                    "openid", 
+                    "https://www.googleapis.com/auth/userinfo.email", 
+                    "https://www.googleapis.com/auth/userinfo.profile"
+                ],
+                redirect_uri=REDIRECT_URI
+            )
+        else:
+            # Fallback a archivo si no hay secrets (solo para local)
+            flow = Flow.from_client_secrets_file(
+                "client_secret.json",
+                scopes=[
+                    "openid", 
+                    "https://www.googleapis.com/auth/userinfo.email", 
+                    "https://www.googleapis.com/auth/userinfo.profile"
+                ],
+                redirect_uri=REDIRECT_URI
+            )
+    except Exception as e:
+        st.error(f"Error configurando OAuth: {e}")
+        st.stop()
 
     # 3. Revisar si viene regresando de Google con un código
     if 'code' not in st.query_params:
@@ -113,7 +132,9 @@ def check_google_login():
             
         except Exception as e:
             st.error(f"Error de autenticación: {e}")
-            st.stop()
+            time.sleep(2)
+            st.query_params.clear()
+            st.rerun()
 
 # EJECUTAR EL PORTERO
 check_google_login()
