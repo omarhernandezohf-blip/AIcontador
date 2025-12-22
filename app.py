@@ -13,6 +13,95 @@ import xml.etree.ElementTree as ET
 # ==============================================================================
 st.set_page_config(page_title="Asistente Contable Pro 2025", page_icon="📊", layout="wide")
 
+# ==========================================
+# 🔐 INICIO BLOQUE DE SEGURIDAD GOOGLE
+# ==========================================
+try:
+    from google_auth_oauthlib.flow import Flow
+    from google.oauth2 import id_token
+    import google.auth.transport.requests
+    import requests
+except ImportError:
+    st.error("⚠️ Faltan librerías. Asegúrate de haber ejecutado el comando pip install.")
+    st.stop()
+
+# CONFIGURACIÓN
+# Asegúrate de que el archivo client_secret.json esté en la carpeta (lo veo en tu imagen)
+CLIENT_SECRET_FILE = "client_secret.json" 
+REDIRECT_URI = "http://localhost:8501" # Estás en tu PC, esto es correcto
+
+# Esta función actúa como portero
+def check_google_login():
+    # 1. Si ya tiene pase, que siga
+    if st.session_state.get('logged_in') == True:
+        return
+
+    # 2. Si NO tiene pase, configurar el flujo de Google
+    try:
+        flow = Flow.from_client_secrets_file(
+            CLIENT_SECRET_FILE,
+            scopes=[
+                "openid", 
+                "https://www.googleapis.com/auth/userinfo.email", 
+                "https://www.googleapis.com/auth/userinfo.profile"
+            ],
+            redirect_uri=REDIRECT_URI
+        )
+    except FileNotFoundError:
+        st.error(f"❌ No encuentro el archivo '{CLIENT_SECRET_FILE}'. Verifica el nombre en la carpeta.")
+        st.stop()
+
+    # 3. Revisar si viene regresando de Google con un código
+    if 'code' not in st.query_params:
+        # Si no trae código, mostramos el botón y DETENEMOS la app
+        auth_url, _ = flow.authorization_url(prompt='consent')
+        
+        st.markdown(f"""
+            <div style="display: flex; justify-content: center; align-items: center; height: 60vh; flex-direction: column;">
+                <h1 style="color: #0d6efd;">Asistente Contable Pro</h1>
+                <p>Inicia sesión para acceder a las herramientas.</p>
+                <a href="{auth_url}" target="_self" style="
+                    background-color: #4285F4; color: white; padding: 15px 30px; 
+                    text-decoration: none; border-radius: 8px; font-weight: bold; 
+                    font-family: sans-serif; font-size: 18px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                    🇬 Iniciar Sesión con Google
+                </a>
+            </div>
+        """, unsafe_allow_html=True)
+        st.stop() # 🛑 AQUÍ SE DETIENE TODO SI NO ESTÁS LOGUEADO 🛑
+    else:
+        # Si trae código, lo canjeamos por credenciales
+        try:
+            code = st.query_params['code']
+            flow.fetch_token(code=code)
+            credentials = flow.credentials
+            
+            # Verificar identidad
+            request = google.auth.transport.requests.Request()
+            id_info = id_token.verify_oauth2_token(
+                credentials.id_token, request, flow.client_config['client_id']
+            )
+            
+            # ✅ ÉXITO: Guardamos los datos en la sesión
+            st.session_state['logged_in'] = True
+            st.session_state['username'] = id_info.get('name')
+            st.session_state['email'] = id_info.get('email')
+            st.session_state['role'] = 'user' # Rol por defecto
+            
+            # Limpiamos la URL y recargamos la página
+            st.query_params.clear()
+            st.rerun()
+            
+        except Exception as e:
+            st.error(f"Error de autenticación: {e}")
+            st.stop()
+
+# EJECUTAR EL PORTERO INMEDIATAMENTE
+check_google_login()
+# ==========================================
+# 🔓 FIN BLOQUE DE SEGURIDAD
+# ==========================================
+
 # Lógica para saludo dinámico
 hora_actual = datetime.now().hour
 if 5 <= hora_actual < 12:
