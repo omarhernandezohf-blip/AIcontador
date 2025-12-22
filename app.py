@@ -28,7 +28,7 @@ except ImportError:
 # CONFIGURACIÓN
 # Asegúrate de que el archivo client_secret.json esté en la carpeta (lo veo en tu imagen)
 CLIENT_SECRET_FILE = "client_secret.json" 
-REDIRECT_URI = "https://alcontador.streamlit.app" # Estás en tu PC, esto es correcto
+REDIRECT_URI = "https://aicontador.streamlit.app" # Estás en tu PC, esto es correcto
 
 # Esta función actúa como portero
 def check_google_login():
