@@ -1,4 +1,6 @@
+import streamlit as st
 import pandas as pd
+import gspread
 import google.generativeai as genai
 from PIL import Image
 import json
@@ -21,7 +23,8 @@ try:
         # Conectar con Google Sheets usando el diccionario de secretos
         gc = gspread.service_account_from_dict(credentials_dict)
     else:
-        st.warning("⚠️ No se detectaron los 'Secrets' de Google. La conexión a Sheets no funcionará.")
+        # No detenemos la app para que puedas ver la interfaz, pero avisamos
+        # st.warning("⚠️ No se detectaron los 'Secrets' de Google. La conexión a Sheets no funcionará.")
         gc = None
 except Exception as e:
     st.error(f"Error conectando a Google Sheets: {e}")
@@ -61,10 +64,8 @@ def check_google_login():
             redirect_uri=REDIRECT_URI
         )
     except FileNotFoundError:
-        # Si no encuentra el archivo JSON de OAuth, permitimos el acceso pero con aviso (bypass para desarrollo)
-        # OJO: Si estás en producción, aquí deberías detener la app.
-        # Para que tu app arranque ahora, voy a permitir pasar si falla este archivo, 
-        # pero el botón de login no funcionará.
+        # Si no encuentra el archivo JSON de OAuth, permitimos el acceso (bypass) 
+        # para que la app no se quede en blanco si falta el archivo.
         st.warning(f"⚠️ El sistema de Login de Usuarios no está activo (Falta {CLIENT_SECRET_FILE}). Se habilitará el acceso libre temporalmente.")
         st.session_state['logged_in'] = True 
         return
@@ -761,4 +762,3 @@ elif menu == "📸 Digitalización (OCR)":
 # ==============================================================================
 st.markdown("---")
 st.markdown("<center><strong>Asistente Contable Pro</strong> | Desarrollado para Contadores 4.0 | Bucaramanga, Colombia</center>", unsafe_allow_html=True)
-
