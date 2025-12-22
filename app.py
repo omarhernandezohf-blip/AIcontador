@@ -1,4 +1,12 @@
 import streamlit as st
+import gspread
+
+# Acceder a las credenciales que guardaste en Secrets
+credentials = st.secrets["gcp_service_account"]
+
+# Conectar con Google Sheets
+gc = gspread.service_account_from_dict(credentials)
+import streamlit as st
 import pandas as pd
 import google.generativeai as genai
 from PIL import Image
@@ -745,3 +753,4 @@ elif menu == "📸 Digitalización (OCR)":
 # ==============================================================================
 st.markdown("---")
 st.markdown("<center><strong>Asistente Contable Pro</strong> | Desarrollado para Contadores 4.0 | Bucaramanga, Colombia</center>", unsafe_allow_html=True)
+
