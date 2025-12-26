@@ -23,124 +23,14 @@ try:
         # Conectar con Google Sheets usando el diccionario de secretos
         gc = gspread.service_account_from_dict(credentials_dict)
     else:
-        # No detenemos la app para que puedas ver la interfaz, pero avisamos
-        # st.warning("⚠️ No se detectaron los 'Secrets' de Google. La conexión a Sheets no funcionará.")
+        # Si no hay secretos, la variable queda nula pero la app no se rompe
         gc = None
 except Exception as e:
     st.error(f"Error conectando a Google Sheets: {e}")
     gc = None
 
 # ==============================================================================
-# 3. SEGURIDAD Y LOGIN (OAuth) - CORREGIDO
-# ==============================================================================
-try:
-    from google_auth_oauthlib.flow import Flow
-    from google.oauth2 import id_token
-    import google.auth.transport.requests
-    import requests
-except ImportError:
-    st.error("⚠️ Faltan librerías. Asegúrate de que requirements.txt tenga: google-auth-oauthlib, google-auth, requests")
-    st.stop()
-
-# URL EXACTA DE TU APP
-REDIRECT_URI = "https://aicontador.streamlit.app"
-
-def check_google_login():
-    # 1. Si ya tiene pase, que siga
-    if st.session_state.get('logged_in') == True:
-        return
-
-    # 2. Configurar el flujo usando st.secrets (Más seguro y estable que el archivo .json)
-    try:
-        if "client_id" in st.secrets:
-            # Construcción manual de la configuración usando tus Secrets
-            client_config = {
-                "web": {
-                    "client_id": st.secrets["client_id"],
-                    "project_id": st.secrets["project_id"],
-                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                    "token_uri": "https://oauth2.googleapis.com/token",
-                    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-                    "client_secret": st.secrets["client_secret"],
-                    "redirect_uris": [REDIRECT_URI]
-                }
-            }
-            flow = Flow.from_client_config(
-                client_config,
-                scopes=[
-                    "openid", 
-                    "https://www.googleapis.com/auth/userinfo.email", 
-                    "https://www.googleapis.com/auth/userinfo.profile"
-                ],
-                redirect_uri=REDIRECT_URI
-            )
-        else:
-            # Fallback a archivo si no hay secrets (solo para local)
-            flow = Flow.from_client_secrets_file(
-                "client_secret.json",
-                scopes=[
-                    "openid", 
-                    "https://www.googleapis.com/auth/userinfo.email", 
-                    "https://www.googleapis.com/auth/userinfo.profile"
-                ],
-                redirect_uri=REDIRECT_URI
-            )
-    except Exception as e:
-        st.error(f"Error configurando OAuth: {e}")
-        st.stop()
-
-    # 3. Revisar si viene regresando de Google con un código
-    if 'code' not in st.query_params:
-        # Si no trae código, mostramos el botón y DETENEMOS la app
-        auth_url, _ = flow.authorization_url(prompt='consent')
-        
-        st.markdown(f"""
-            <div style="display: flex; justify-content: center; align-items: center; height: 60vh; flex-direction: column;">
-                <h1 style="color: #0d6efd;">Asistente Contable Pro</h1>
-                <p>Inicia sesión para acceder a las herramientas.</p>
-                <a href="{auth_url}" target="_self" style="
-                    background-color: #4285F4; color: white; padding: 15px 30px; 
-                    text-decoration: none; border-radius: 8px; font-weight: bold; 
-                    font-family: sans-serif; font-size: 18px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
-                    🇬 Iniciar Sesión con Google
-                </a>
-            </div>
-        """, unsafe_allow_html=True)
-        st.stop() # 🛑 AQUÍ SE DETIENE TODO SI NO ESTÁS LOGUEADO
-    else:
-        # Si trae código, lo canjeamos por credenciales
-        try:
-            code = st.query_params['code']
-            flow.fetch_token(code=code)
-            credentials = flow.credentials
-            
-            # Verificar identidad
-            request = google.auth.transport.requests.Request()
-            id_info = id_token.verify_oauth2_token(
-                credentials.id_token, request, flow.client_config['client_id']
-            )
-            
-            # ✅ ÉXITO: Guardamos los datos en la sesión
-            st.session_state['logged_in'] = True
-            st.session_state['username'] = id_info.get('name')
-            st.session_state['email'] = id_info.get('email')
-            st.session_state['role'] = 'user'
-            
-            # Limpiamos la URL y recargamos la página
-            st.query_params.clear()
-            st.rerun()
-            
-        except Exception as e:
-            st.error(f"Error de autenticación: {e}")
-            time.sleep(2)
-            st.query_params.clear()
-            st.rerun()
-
-# EJECUTAR EL PORTERO
-check_google_login()
-
-# ==============================================================================
-# 4. ESTILOS Y CONSTANTES
+# 3. ESTILOS Y CONSTANTES
 # ==============================================================================
 
 # Lógica para saludo dinámico
