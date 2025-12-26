@@ -10,12 +10,12 @@ from datetime import datetime, timedelta
 import xml.etree.ElementTree as ET
 
 # ==============================================================================
-# 1. CONFIGURACIÓN VISUAL
+# 1. CONFIGURACIÓN VISUAL (Debe ir al principio obligatoriamente)
 # ==============================================================================
 st.set_page_config(page_title="Asistente Contable Pro 2025", page_icon="📊", layout="wide")
 
 # ==============================================================================
-# 2. SISTEMA DE SEGURIDAD (CORREGIDO: URL EXACTA)
+# 2. SISTEMA DE SEGURIDAD Y LOGIN (GOOGLE OAUTH) - INTEGRADO
 # ==============================================================================
 try:
     from google_auth_oauthlib.flow import Flow
@@ -23,25 +23,31 @@ try:
     import google.auth.transport.requests
     import requests
 except ImportError:
-    st.error("⚠️ Faltan librerías. Asegúrate de tener 'google-auth-oauthlib' y 'google-auth' en requirements.txt")
+    st.error("⚠️ Faltan librerías. Asegúrate de que requirements.txt tenga: google-auth-oauthlib, google-auth, requests")
     st.stop()
 
-# --- AQUÍ ESTABA EL ERROR: AHORA SIN LA BARRA AL FINAL ---
+# URL EXACTA DE TU APP (Sin la barra al final, según tu configuración de Google)
 REDIRECT_URI = "https://aicontador.streamlit.app"
 
 def sistema_login():
+    """Gestiona la autenticación con Google. Si falla, detiene la app."""
+    
+    # A. Si ya está logueado, permitir acceso inmediato
     if st.session_state.get('logged_in') == True:
         return True
 
+    # B. Configurar la conexión con Google usando los Secrets
     try:
-        if "client_id" not in st.secrets:
-            st.warning("⚠️ Configura los Secrets en Streamlit.")
+        # Validación de seguridad básica
+        if "client_id" not in st.secrets or "client_secret" not in st.secrets:
+            st.warning("⚠️ Esperando configuración de credenciales en los Secrets de Streamlit...")
             st.stop()
 
+        # Construcción manual de la configuración del cliente
         client_config = {
             "web": {
                 "client_id": st.secrets["client_id"],
-                "project_id": st.secrets.get("project_id", "asistentecontable"),
+                "project_id": "asistentecontable-481806", 
                 "auth_uri": "https://accounts.google.com/o/oauth2/auth",
                 "token_uri": "https://oauth2.googleapis.com/token",
                 "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
@@ -50,42 +56,56 @@ def sistema_login():
             }
         }
         
+        # Permisos solicitados
         scopes = [
             "openid",
             "https://www.googleapis.com/auth/userinfo.email",
             "https://www.googleapis.com/auth/userinfo.profile"
         ]
 
-        flow = Flow.from_client_config(client_config, scopes=scopes, redirect_uri=REDIRECT_URI)
+        flow = Flow.from_client_config(
+            client_config,
+            scopes=scopes,
+            redirect_uri=REDIRECT_URI
+        )
 
     except Exception as e:
-        st.error(f"❌ Error de configuración: {e}")
+        st.error(f"❌ Error interno de configuración: {e}")
         st.stop()
 
+    # C. Procesar el retorno de Google (Cuando trae el código en la URL)
     if 'code' in st.query_params:
         try:
             code = st.query_params['code']
             flow.fetch_token(code=code)
             credentials = flow.credentials
-            request = google.auth.transport.requests.Request()
-            id_info = id_token.verify_oauth2_token(credentials.id_token, request, st.secrets["client_id"])
             
+            # Validar identidad del token
+            request = google.auth.transport.requests.Request()
+            id_info = id_token.verify_oauth2_token(
+                credentials.id_token, request, st.secrets["client_id"]
+            )
+            
+            # Guardar en sesión
             st.session_state['logged_in'] = True
             st.session_state['username'] = id_info.get('name')
             st.session_state['email'] = id_info.get('email')
             
+            # Limpiar URL y recargar la página limpia
             st.query_params.clear()
             st.rerun()
             return True
             
         except Exception as e:
-            st.error(f"❌ Error al validar: {e}")
-            time.sleep(3)
+            st.error(f"❌ Error de validación (posible 403 o mismatch): {e}")
+            time.sleep(4)
             st.query_params.clear()
             st.rerun()
 
+    # D. Mostrar Botón de Login (Estado inicial)
     else:
         auth_url, _ = flow.authorization_url(prompt='consent')
+        
         st.markdown(f"""
             <div style="display: flex; justify-content: center; align-items: center; height: 80vh; flex-direction: column; background-color: #0e1117;">
                 <img src="https://cdn-icons-png.flaticon.com/512/9320/9320399.png" width="100" style="margin-bottom: 20px;">
@@ -96,59 +116,161 @@ def sistema_login():
                     color: white; padding: 15px 40px; 
                     text-decoration: none; border-radius: 50px; font-weight: bold; 
                     font-family: sans-serif; font-size: 18px; 
-                    box-shadow: 0 4px 15px rgba(66, 133, 244, 0.4);">
+                    box-shadow: 0 4px 15px rgba(66, 133, 244, 0.4);
+                    transition: transform 0.2s;">
                     🇬 Iniciar Sesión con Google
                 </a>
-                <p style="color: #555; margin-top: 30px; font-size: 0.8rem;">Acceso Seguro v6.2 | Build 2025</p>
+                <p style="color: #555; margin-top: 30px; font-size: 0.8rem;">Acceso Seguro v7.0 | Build 2025</p>
             </div>
         """, unsafe_allow_html=True)
         return False
 
+# --- ACTIVAR EL PORTERO ---
+# Si esta función devuelve False, se detiene la ejecución del resto del código.
 if not sistema_login():
     st.stop()
 
 # ==============================================================================
-# 3. APLICACIÓN PRINCIPAL
+# 3. CONEXIÓN A GOOGLE SHEETS (USANDO SECRETS)
 # ==============================================================================
-
 try:
     if "gcp_service_account" in st.secrets:
         credentials_dict = st.secrets["gcp_service_account"]
+        # Conectar con Google Sheets usando el diccionario de secretos
         gc = gspread.service_account_from_dict(credentials_dict)
     else:
+        # No detenemos la app para que puedas ver la interfaz, pero la variable queda nula
         gc = None
-except:
+except Exception as e:
+    # st.error(f"Error conectando a Google Sheets: {e}") # Omitimos el error visual si no es crítico
     gc = None
 
+# ==============================================================================
+# 4. ESTILOS Y CONSTANTES
+# ==============================================================================
+
+# Lógica para saludo dinámico
 hora_actual = datetime.now().hour
-if 5 <= hora_actual < 12: saludo = "Buenos días"; icono_saludo = "☀️"
-elif 12 <= hora_actual < 18: saludo = "Buenas tardes"; icono_saludo = "🌤️"
-else: saludo = "Buenas noches"; icono_saludo = "🌙"
+if 5 <= hora_actual < 12:
+    saludo = "Buenos días"
+    icono_saludo = "☀️"
+elif 12 <= hora_actual < 18:
+    saludo = "Buenas tardes"
+    icono_saludo = "🌤️"
+else:
+    saludo = "Buenas noches"
+    icono_saludo = "🌙"
 
 st.markdown("""
     <style>
-    .stApp { background-color: #0e1117 !important; color: #e0e0e0 !important; }
-    h1 { background: -webkit-linear-gradient(45deg, #0d6efd, #00d2ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800 !important; }
-    .instruccion-box, .rut-card, .reporte-box { background: rgba(38, 39, 48, 0.7) !important; backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 20px; margin-bottom: 25px; border-left: 4px solid #0d6efd; }
-    .stButton>button { background: linear-gradient(90deg, #0d6efd 0%, #0056b3 100%) !important; color: white !important; border-radius: 8px; font-weight: 600; border: none; height: 3.5em; width: 100%; transition: all 0.3s ease; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
-    .metric-box-red { background: rgba(62, 18, 22, 0.8) !important; color: #ffaeb6 !important; padding: 15px; border-radius: 10px; text-align: center; border: 1px solid #842029; }
-    .metric-box-green { background: rgba(15, 41, 30, 0.8) !important; color: #a3cfbb !important; padding: 15px; border-radius: 10px; text-align: center; border: 1px solid #0f5132; }
-    </style>
-""", unsafe_allow_html=True)
+    /* --- 1. FONDO Y TIPOGRAFÍA --- */
+    .stApp {
+        background-color: #0e1117 !important;
+        color: #e0e0e0 !important;
+    }
+    
+    html, body, [class*="css"] {
+        font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+    }
 
-SMMLV_2025, AUX_TRANS_2025 = 1430000, 175000
-UVT_2025, TOPE_EFECTIVO = 49799, 100 * 49799
-BASE_RET_SERVICIOS, BASE_RET_COMPRAS = 4 * 49799, 27 * 49799
+    /* --- 2. TÍTULOS CON DEGRADADO --- */
+    h1 {
+        background: -webkit-linear-gradient(45deg, #0d6efd, #00d2ff);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-weight: 800 !important;
+        letter-spacing: -1px;
+    }
+    h2, h3 { color: #f0f2f6 !important; font-weight: 700; }
+
+    /* --- 3. TARJETAS INTERACTIVAS (GLASSMORPHISM) --- */
+    .instruccion-box, .rut-card, .reporte-box, .tutorial-step {
+        background: rgba(38, 39, 48, 0.7) !important;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 25px;
+        transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+    }
+
+    .instruccion-box:hover, .rut-card:hover, .reporte-box:hover, .tutorial-step:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+        border-color: #0d6efd;
+    }
+
+    .instruccion-box { border-left: 4px solid #0d6efd; }
+    .instruccion-box h4 { color: #0d6efd !important; margin-top: 0; font-weight: bold; }
+    .instruccion-box p, .instruccion-box li { color: #b0b3b8 !important; }
+
+    /* --- 4. BOTONES ELEGANTES --- */
+    .stButton>button {
+        background: linear-gradient(90deg, #0d6efd 0%, #0056b3 100%) !important;
+        color: white !important;
+        border-radius: 8px;
+        font-weight: 600;
+        border: none;
+        height: 3.5em;
+        width: 100%;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    }
+    
+    .stButton>button:hover {
+        background: linear-gradient(90deg, #0b5ed7 0%, #004494 100%) !important;
+        box-shadow: 0 6px 12px rgba(13, 110, 253, 0.4);
+        transform: scale(1.02);
+    }
+
+    /* --- 5. ENLACES --- */
+    a { color: #4dabf7 !important; text-decoration: none; transition: color 0.2s; }
+    a:hover { color: #a5d8ff !important; text-decoration: none; }
+
+    /* --- 6. ALERTAS ESTILIZADAS --- */
+    .metric-box-red { 
+        background: rgba(62, 18, 22, 0.8) !important; 
+        color: #ffaeb6 !important; 
+        padding: 15px; border-radius: 10px; text-align: center; border: 1px solid #842029;
+    }
+    .metric-box-green { 
+        background: rgba(15, 41, 30, 0.8) !important; 
+        color: #a3cfbb !important; 
+        padding: 15px; border-radius: 10px; text-align: center; border: 1px solid #0f5132;
+    }
+    
+    ::-webkit-scrollbar { width: 10px; }
+    ::-webkit-scrollbar-track { background: #0e1117; }
+    ::-webkit-scrollbar-thumb { background: #303030; border-radius: 5px; }
+    ::-webkit-scrollbar-thumb:hover { background: #0d6efd; }
+    </style>
+    """, unsafe_allow_html=True)
+
+# CONSTANTES FISCALES 2025
+SMMLV_2025 = 1430000
+AUX_TRANS_2025 = 175000
+UVT_2025 = 49799
+TOPE_EFECTIVO = 100 * UVT_2025
+BASE_RET_SERVICIOS = 4 * UVT_2025
+BASE_RET_COMPRAS = 27 * UVT_2025
+
+# ==============================================================================
+# 5. FUNCIONES DE LÓGICA DE NEGOCIO
+# ==============================================================================
 
 def calcular_dv_colombia(nit_sin_dv):
     try:
         nit_str = str(nit_sin_dv).strip()
         if not nit_str.isdigit(): return "Error"
         primos = [3, 7, 13, 17, 19, 23, 29, 37, 41, 43, 47, 53, 59, 67, 71]
-        suma = sum(int(digito) * primos[i] for i, digito in enumerate(reversed(nit_str)) if i < len(primos))
+        suma = 0
+        for i, digito in enumerate(reversed(nit_str)):
+            if i < len(primos):
+                suma += int(digito) * primos[i]
         resto = suma % 11
         return str(resto) if resto <= 1 else str(11 - resto)
-    except: return "?"
+    except:
+        return "?"
 
 def analizar_gasto_fila(row, col_valor, col_metodo, col_concepto):
     hallazgos = []
@@ -199,7 +321,8 @@ def consultar_ia_gemini(prompt):
         model = genai.GenerativeModel('models/gemini-1.5-flash')
         response = model.generate_content(prompt)
         return response.text
-    except Exception as e: return f"Error de conexión IA: {str(e)}"
+    except Exception as e:
+        return f"Error de conexión IA: {str(e)}"
 
 def ocr_factura(imagen):
     try:
@@ -207,17 +330,22 @@ def ocr_factura(imagen):
         prompt = """Extrae datos JSON estricto: {"fecha": "YYYY-MM-DD", "nit": "num", "proveedor": "txt", "concepto": "txt", "base": num, "iva": num, "total": num}"""
         response = model.generate_content([prompt, imagen])
         return json.loads(response.text.replace("```json", "").replace("```", "").strip())
-    except: return None
+    except:
+        return None
 
 def parsear_xml_dian(archivo_xml):
     try:
         tree = ET.parse(archivo_xml)
         root = tree.getroot()
-        ns = {'cac': 'urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2', 'cbc': 'urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2'}
+        ns = {'cac': 'urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2',
+              'cbc': 'urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2'}
         def get_text(path, root_elem=root):
             elem = root_elem.find(path, ns)
             return elem.text if elem is not None else ""
-        data = {'Archivo': archivo_xml.name, 'Prefijo': get_text('.//cbc:ID'), 'Fecha Emision': get_text('.//cbc:IssueDate')}
+        data = {}
+        data['Archivo'] = archivo_xml.name
+        data['Prefijo'] = get_text('.//cbc:ID')
+        data['Fecha Emision'] = get_text('.//cbc:IssueDate')
         emisor = root.find('.//cac:AccountingSupplierParty', ns)
         if emisor:
             data['NIT Emisor'] = get_text('.//cbc:CompanyID', emisor.find('.//cac:PartyTaxScheme', ns))
@@ -232,134 +360,535 @@ def parsear_xml_dian(archivo_xml):
             data['Base Imponible'] = float(get_text('cbc:LineExtensionAmount', monetary) or 0)
             data['Total Impuestos'] = float(get_text('cbc:TaxInclusiveAmount', monetary) or 0) - data['Base Imponible']
         return data
-    except: return {"Archivo": archivo_xml.name, "Error": "Error XML"}
+    except:
+        return {"Archivo": archivo_xml.name, "Error": "Error XML"}
 
+# ==============================================================================
+# 6. INTERFAZ DE USUARIO (SIDEBAR & MENÚ)
+# ==============================================================================
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/9320/9320399.png", width=80)
+    
+    # Mostrar usuario logueado
     if 'username' in st.session_state:
         st.write(f"👤 **{st.session_state['username']}**")
         if st.button("Cerrar Sesión"):
-            st.session_state.clear(); st.rerun()
+            st.session_state.clear()
+            st.rerun()
+            
     st.markdown("### 🏢 Panel de Control")
     st.markdown("---")
-    opciones_menu = ["🏠 Inicio / Quiénes Somos", "⚖️ Cruce DIAN vs Contabilidad", "📧 Lector XML (Facturación)", "🤝 Conciliador Bancario (IA)", "📂 Auditoría Masiva de Gastos", "👥 Escáner de Nómina (UGPP)", "💰 Tesorería & Flujo de Caja", "💰 Calculadora Costos (Masiva)", "📊 Analítica Financiera", "📈 Reportes Gerenciales & Notas NIIF (IA)", "🔍 Validador de RUT (Real)", "📸 Digitalización (OCR)"]
+    
+    opciones_menu = [
+        "🏠 Inicio / Quiénes Somos",
+        "⚖️ Cruce DIAN vs Contabilidad",
+        "📧 Lector XML (Facturación)",
+        "🤝 Conciliador Bancario (IA)",
+        "📂 Auditoría Masiva de Gastos",
+        "👥 Escáner de Nómina (UGPP)",
+        "💰 Tesorería & Flujo de Caja",
+        "💰 Calculadora Costos (Masiva)",
+        "📊 Analítica Financiera",
+        "📈 Reportes Gerenciales & Notas NIIF (IA)", # NUEVO MÓDULO AÑADIDO
+        "🔍 Validador de RUT (Real)",
+        "📸 Digitalización (OCR)"
+    ]
+    
     menu = st.radio("Herramientas Profesionales:", opciones_menu)
+    
     st.markdown("---")
     with st.expander("🔐 Configuración & Seguridad"):
         st.info("Pega aquí tu llave para activar el modo 'Cerebro IA':")
         api_key = st.text_input("API Key Google:", type="password")
         if api_key: genai.configure(api_key=api_key)
-    st.markdown("<br><center><small>v6.2 | Build 2025</small></center>", unsafe_allow_html=True)
+    
+    st.markdown("<br><center><small>v7.0 | Build 2025</small></center>", unsafe_allow_html=True)
 
+# ==============================================================================
+# 7. DESARROLLO DE PESTAÑAS (PÁGINAS)
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 0. INICIO / QUIÉNES SOMOS
+# ------------------------------------------------------------------------------
 if menu == "🏠 Inicio / Quiénes Somos":
     st.markdown(f"# {icono_saludo} {saludo}, {st.session_state.get('username', 'Colega')}.")
     st.markdown("### Bienvenido a tu Centro de Comando Contable Inteligente.")
-    c1, c2 = st.columns([1.5, 1])
-    with c1:
-        st.markdown("""<div class='instruccion-box' style='border-left: 4px solid #00d2ff;'><h4>🚀 La Nueva Era Contable</h4><p>Olvídate de la "carpintería". Esta suite ha sido diseñada para automatizar lo operativo y dejarte tiempo para lo estratégico.</p></div>""", unsafe_allow_html=True)
-        cc1, cc2 = st.columns(2)
-        cc1.info("⚖️ **Cruce DIAN:** Compara lo que la DIAN sabe de ti."); cc1.info("📧 **XML Miner:** Extrae datos masivos.")
-        cc2.info("🤝 **Bank Match:** Concilia bancos con IA."); cc2.info("📈 **Notas NIIF:** Redacción automática.")
-    with c2:
-        st.markdown("""<div class='reporte-box'><h4>💡 Workflow Recomendado</h4><ol><li>Descarga auxiliares de tu ERP.</li><li>Descarga el reporte DIAN.</li><li>Usa el "Cruce DIAN".</li><li>Usa "Reportes NIIF".</li></ol></div>""", unsafe_allow_html=True)
+    
+    col_intro1, col_intro2 = st.columns([1.5, 1])
+    
+    with col_intro1:
+        st.markdown("""
+        <div class='instruccion-box' style='border-left: 4px solid #00d2ff;'>
+            <h4>🚀 La Nueva Era Contable</h4>
+            <p>Olvídate de la "carpintería". Esta suite ha sido diseñada para automatizar lo operativo y dejarte tiempo para lo estratégico.</p>
+            <p><strong>Nuestra Filosofía:</strong> Menos clics, más análisis. Menos errores, más tranquilidad.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("### 🛠️ Herramientas de Alto Impacto:")
+        c_tool1, c_tool2 = st.columns(2)
+        with c_tool1:
+            st.info("⚖️ **Cruce DIAN:** Compara lo que la DIAN sabe de ti vs. tu Contabilidad.")
+            st.info("📧 **XML Miner:** Extrae datos de miles de facturas en segundos.")
+        with c_tool2:
+            st.info("🤝 **Bank Match:** Concilia bancos con IA.")
+            st.info("📈 **Notas NIIF:** Redacción automática de revelaciones.")
+        
+    with col_intro2:
+        st.markdown("""
+        <div class='reporte-box'>
+            <h4>💡 Workflow Recomendado</h4>
+            <ol>
+                <li>Descarga auxiliares de tu ERP (Siigo, World Office).</li>
+                <li>Descarga el reporte de terceros de la DIAN.</li>
+                <li>Usa el "Cruce DIAN" para detectar ingresos/costos omitidos.</li>
+                <li>Usa "Reportes NIIF" para redactar las notas finales.</li>
+            </ol>
+        </div>
+        """, unsafe_allow_html=True)
 
+    st.markdown("---")
+    
+    st.subheader("🔑 Activación del Núcleo IA (Gratuito)")
+    
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.markdown("""
+        <div class='tutorial-step'>
+        <h4>1. Acceso</h4>
+        <p>Entra a Google AI Studio con tu cuenta Gmail.</p>
+        <p><a href='https://aistudio.google.com/app/apikey' target='_blank'>🔗 Ir al sitio oficial</a></p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with c2:
+        st.markdown("""
+        <div class='tutorial-step'>
+        <h4>2. Creación</h4>
+        <p>Busca el botón azul <strong>"Get API Key"</strong> y dale clic a "Create Key".</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+    with c3:
+        st.markdown("""
+        <div class='tutorial-step'>
+        <h4>3. Conexión</h4>
+        <p>Copia el código (AIza...) y pégalo en el menú lateral izquierdo.</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+# ------------------------------------------------------------------------------
+# 1. CRUCE DIAN VS CONTABILIDAD
+# ------------------------------------------------------------------------------
 elif menu == "⚖️ Cruce DIAN vs Contabilidad":
     st.header("⚖️ Auditor de Exógena (Cruce DIAN)")
-    c1, c2 = st.columns(2)
-    f1 = c1.file_uploader("Reporte DIAN (.xlsx)"); f2 = c2.file_uploader("Auxiliar Contable (.xlsx)")
-    if f1 and f2:
-        d1 = pd.read_excel(f1); d2 = pd.read_excel(f2)
-        st.subheader("⚙️ Mapeo"); c1, c2, c3, c4 = st.columns(4)
-        n1 = c1.selectbox("NIT DIAN", d1.columns); v1 = c2.selectbox("Vlr DIAN", d1.columns)
-        n2 = c3.selectbox("NIT Conta", d2.columns); v2 = c4.selectbox("Vlr Conta", d2.columns)
-        if st.button("🔎 EJECUTAR CRUCE"):
-            g1 = d1.groupby(n1)[v1].sum().reset_index(); g1.columns=['NIT','Vlr_DIAN']
-            g2 = d2.groupby(n2)[v2].sum().reset_index(); g2.columns=['NIT','Vlr_Conta']
-            m = pd.merge(g1, g2, on='NIT', how='outer').fillna(0)
-            m['Dif'] = m['Vlr_DIAN'] - m['Vlr_Conta']
-            dif = m[abs(m['Dif']) > 1000]
-            if not dif.empty: st.error(f"⚠️ {len(dif)} diferencias."); st.dataframe(dif)
-            else: st.success("✅ Todo cuadra.")
-
-elif menu == "📧 Lector XML (Facturación)":
-    st.header("📧 Minería de Datos XML"); axs = st.file_uploader("XMLs", type='xml', accept_multiple_files=True)
-    if axs and st.button("🚀 PROCESAR"):
-        res = [parsear_xml_dian(f) for f in axs]; st.dataframe(pd.DataFrame(res))
-
-elif menu == "🤝 Conciliador Bancario (IA)":
-    st.header("🤝 Conciliación Bancaria"); c1, c2 = st.columns(2)
-    fb = c1.file_uploader("Banco"); fl = c2.file_uploader("Libros")
-    if fb and fl:
-        db = pd.read_excel(fb); dl = pd.read_excel(fl)
+    st.markdown("""
+    <div class='instruccion-box'>
+        <h4>💡 El "Detector de Mentiras" Fiscal</h4>
+        <p>Esta herramienta es vital para el cierre contable. Compara la información que la DIAN tiene de ti (Reporte de Terceros) contra tu Contabilidad Interna. Detecta facturas que proveedores reportaron pero tú no causaste, o ingresos que olvidaste declarar.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col_dian, col_conta = st.columns(2)
+    with col_dian:
+        st.subheader("🏛️ 1. Archivo DIAN")
+        file_dian = st.file_uploader("Subir 'Reporte Terceros DIAN' (.xlsx)", type=['xlsx'])
+    with col_conta:
+        st.subheader("📒 2. Contabilidad")
+        file_conta = st.file_uploader("Subir Auxiliar por Tercero (.xlsx)", type=['xlsx'])
+        
+    if file_dian and file_conta:
+        df_dian = pd.read_excel(file_dian)
+        df_conta = pd.read_excel(file_conta)
+        
+        st.write("---")
+        st.subheader("⚙️ Mapeo de Columnas (NIT y Valor)")
         c1, c2, c3, c4 = st.columns(4)
-        cfb = c1.selectbox("F. Banco", db.columns); cvb = c2.selectbox("V. Banco", db.columns)
-        cfl = c3.selectbox("F. Libro", dl.columns); cvl = c4.selectbox("V. Libro", dl.columns)
-        if st.button("🔄 CONCILIAR"):
-            st.success("Proceso de conciliación ejecutado (Simulación)"); st.dataframe(db.head())
+        nit_dian = c1.selectbox("NIT (Archivo DIAN):", df_dian.columns)
+        val_dian = c2.selectbox("Valor (Archivo DIAN):", df_dian.columns)
+        nit_conta = c3.selectbox("NIT (Tu Contabilidad):", df_conta.columns)
+        val_conta = c4.selectbox("Saldo (Tu Contabilidad):", df_conta.columns)
+        
+        if st.button("🔎 EJECUTAR CRUCE FISCAL"):
+            # Agrupamos por NIT para tener totales por tercero
+            dian_grouped = df_dian.groupby(nit_dian)[val_dian].sum().reset_index()
+            dian_grouped.columns = ['NIT', 'Valor_DIAN']
+            
+            conta_grouped = df_conta.groupby(nit_conta)[val_conta].sum().reset_index()
+            conta_grouped.columns = ['NIT', 'Valor_Conta']
+            
+            # Cruce (Merge)
+            cruce = pd.merge(dian_grouped, conta_grouped, on='NIT', how='outer').fillna(0)
+            cruce['Diferencia'] = cruce['Valor_DIAN'] - cruce['Valor_Conta']
+            
+            # Filtrar solo diferencias significativas
+            diferencias = cruce[abs(cruce['Diferencia']) > 1000] # Umbral de $1.000 pesos
+            
+            st.success("Cruce Finalizado.")
+            
+            # Métricas
+            m1, m2 = st.columns(2)
+            m1.metric("Total Reportado DIAN", f"${cruce['Valor_DIAN'].sum():,.0f}")
+            m2.metric("Total Tu Contabilidad", f"${cruce['Valor_Conta'].sum():,.0f}")
+            
+            if not diferencias.empty:
+                st.error(f"⚠️ Se encontraron {len(diferencias)} terceros con diferencias significativas.")
+                st.dataframe(diferencias.style.format("{:,.0f}"), use_container_width=True)
+                
+                # Descarga
+                out = io.BytesIO()
+                with pd.ExcelWriter(out, engine='xlsxwriter') as w:
+                    diferencias.to_excel(w, index=False)
+                st.download_button("📥 Descargar Reporte de Diferencias", out.getvalue(), "Auditoria_Exogena.xlsx")
+            else:
+                st.balloons()
+                st.success("✅ ¡Increíble! Tu contabilidad cuadra perfectamente con la DIAN.")
 
+# ------------------------------------------------------------------------------
+# 2. LECTOR XML
+# ------------------------------------------------------------------------------
+elif menu == "📧 Lector XML (Facturación)":
+    st.header("📧 Minería de Datos XML (Facturación)")
+    st.markdown("""
+    <div class='instruccion-box'>
+        <h4>💡 Auditoría desde la Fuente</h4>
+        <p>El PDF es solo una imagen. La verdad legal está en el XML. Arrastra aquí tus archivos de Facturación Electrónica para generar un reporte contable exacto en segundos.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    archivos_xml = st.file_uploader("Arrastra XMLs (Máx 5GB)", type=['xml'], accept_multiple_files=True)
+    if archivos_xml and st.button("🚀 INICIAR EXTRACCIÓN MASIVA"):
+        datos_xml = []
+        barra = st.progress(0)
+        for i, f in enumerate(archivos_xml):
+            barra.progress((i+1)/len(archivos_xml))
+            datos_xml.append(parsear_xml_dian(f))
+        df_xml = pd.DataFrame(datos_xml)
+        st.dataframe(df_xml, use_container_width=True)
+        out = io.BytesIO()
+        with pd.ExcelWriter(out, engine='xlsxwriter') as w: df_xml.to_excel(w, index=False)
+        st.download_button("📥 Descargar Reporte Maestro (.xlsx)", out.getvalue(), "Resumen_XML.xlsx")
+
+# ------------------------------------------------------------------------------
+# 3. CONCILIADOR BANCARIO
+# ------------------------------------------------------------------------------
+elif menu == "🤝 Conciliador Bancario (IA)":
+    st.header("🤝 Conciliación Bancaria Inteligente")
+    st.markdown("""
+    <div class='instruccion-box'>
+        <h4>💡 Cruce Automático</h4>
+        <p>Sube tu extracto y tu libro auxiliar. El algoritmo buscará coincidencias por valor y fecha aproximada, identificando automáticamente las partidas pendientes.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col_banco, col_libro = st.columns(2)
+    with col_banco:
+        st.subheader("🏦 Extracto Bancario")
+        file_banco = st.file_uploader("Subir Excel Banco", type=['xlsx'])
+    with col_libro:
+        st.subheader("📒 Libro Auxiliar")
+        file_libro = st.file_uploader("Subir Excel Contabilidad", type=['xlsx'])
+    if file_banco and file_libro:
+        df_banco = pd.read_excel(file_banco); df_libro = pd.read_excel(file_libro)
+        c1, c2, c3, c4 = st.columns(4)
+        col_fecha_b = c1.selectbox("Fecha Banco:", df_banco.columns, key="fb")
+        col_valor_b = c2.selectbox("Valor Banco:", df_banco.columns, key="vb")
+        col_fecha_l = c3.selectbox("Fecha Conta:", df_libro.columns, key="fl")
+        col_valor_l = c4.selectbox("Valor Conta:", df_libro.columns, key="vl")
+        col_desc_b = st.selectbox("Descripción Banco (Para detalle):", df_banco.columns, key="db")
+        
+        if st.button("🔄 EJECUTAR CONCILIACIÓN"):
+            df_banco['Fecha_Dt'] = pd.to_datetime(df_banco[col_fecha_b])
+            df_libro['Fecha_Dt'] = pd.to_datetime(df_libro[col_fecha_l])
+            df_banco['Conciliado'] = False; df_libro['Conciliado'] = False
+            matches = []
+            bar = st.progress(0)
+            for idx_b, row_b in df_banco.iterrows():
+                bar.progress((idx_b+1)/len(df_banco))
+                vb = row_b[col_valor_b]; fb = row_b['Fecha_Dt']
+                cands = df_libro[(df_libro[col_valor_l] == vb) & (~df_libro['Conciliado']) & (df_libro['Fecha_Dt'].between(fb-timedelta(days=3), fb+timedelta(days=3)))]
+                if not cands.empty:
+                    df_banco.at[idx_b, 'Conciliado']=True; df_libro.at[cands.index[0], 'Conciliado']=True
+                    matches.append({"Fecha": row_b[col_fecha_b], "Desc": row_b[col_desc_b], "Valor": vb, "Estado": "✅ OK"})
+            
+            st.success(f"Proceso finalizado. {len(matches)} partidas conciliadas automáticamente.")
+            t1, t2, t3 = st.tabs(["✅ Partidas Cruzadas", "⚠️ Pendientes en Banco", "⚠️ Pendientes en Libros"])
+            with t1: st.dataframe(pd.DataFrame(matches), use_container_width=True)
+            with t2: st.dataframe(df_banco[~df_banco['Conciliado']], use_container_width=True)
+            with t3: st.dataframe(df_libro[~df_libro['Conciliado']], use_container_width=True)
+
+# ------------------------------------------------------------------------------
+# 4. AUDITORÍA GASTOS
+# ------------------------------------------------------------------------------
 elif menu == "📂 Auditoría Masiva de Gastos":
-    st.header("📂 Auditoría Fiscal"); ar = st.file_uploader("Gastos (.xlsx)")
+    st.header("📂 Auditoría Fiscal Masiva")
+    st.markdown("""
+    <div class='instruccion-box'>
+        <h4>💡 Escudo Fiscal (Art. 771-5)</h4>
+        <p>Analiza miles de filas de tu auxiliar de gastos. Detecta automáticamente pagos en efectivo que superan los topes y operaciones sin retención en la fuente.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    ar = st.file_uploader("Cargar Auxiliar de Gastos (.xlsx)", type=['xlsx'])
     if ar:
-        df = pd.read_excel(ar); c1, c2, c3, c4 = st.columns(4)
-        cf = c1.selectbox("F", df.columns); cv = c2.selectbox("V", df.columns)
-        cm = c3.selectbox("Met", df.columns); cc = c4.selectbox("Con", df.columns)
-        if st.button("AUDITAR"):
-            res = [analizar_gasto_fila(r, cv, cm, cc) for r in df.to_dict('records')]
-            st.dataframe(pd.DataFrame(res))
+        df = pd.read_excel(ar)
+        c1, c2, c3, c4 = st.columns(4)
+        cf, ct, cc, cv = c1.selectbox("Fecha", df.columns), c2.selectbox("Tercero", df.columns), c3.selectbox("Concepto", df.columns), c4.selectbox("Valor", df.columns)
+        cm = st.selectbox("Método de Pago", ["No disponible"]+list(df.columns))
+        if st.button("🔍 AUDITAR AHORA"):
+            res = []
+            for r in df.to_dict('records'):
+                met = r[cm] if cm != "No disponible" else "Efectivo"
+                h, rs = analizar_gasto_fila(r, cv, cf, cc)
+                v = float(r[cv]) if pd.notnull(r[cv]) else 0
+                txt, rv = [], "BAJO"
+                if "efectivo" in str(met).lower() and v > TOPE_EFECTIVO: txt.append("RECHAZO 771-5"); rv="ALTO"
+                if v >= BASE_RET_SERVICIOS: txt.append("Posible Omisión Retención"); rv="MEDIO" if rv=="BAJO" else rv
+                res.append({"Fila": r[cf], "Tercero": r[ct], "Valor": v, "Nivel Riesgo": rv, "Hallazgos": " ".join(txt)})
+            st.dataframe(pd.DataFrame(res), use_container_width=True)
 
+# ------------------------------------------------------------------------------
+# 5. ESCÁNER NÓMINA UGPP
+# ------------------------------------------------------------------------------
 elif menu == "👥 Escáner de Nómina (UGPP)":
-    st.header("👥 Escáner UGPP"); an = st.file_uploader("Nómina (.xlsx)")
+    st.header("👥 Escáner de Riesgo UGPP")
+    st.markdown("""
+    <div class='instruccion-box'>
+        <h4>💡 Ley 1393: Regla del 40%</h4>
+        <p>Evita sanciones millonarias. Este módulo verifica empleado por empleado si los pagos no salariales exceden el límite permitido y calcula el ajuste exacto para la PILA.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    an = st.file_uploader("Cargar Nómina (.xlsx)", type=['xlsx'])
     if an:
-        dn = pd.read_excel(an); c1, c2, c3 = st.columns(3)
-        cn = c1.selectbox("Emp", dn.columns); cs = c2.selectbox("Sal", dn.columns); cns = c3.selectbox("NoSal", dn.columns)
-        if st.button("ESCANEAR"):
+        dn = pd.read_excel(an)
+        c1, c2, c3 = st.columns(3)
+        cn, cs, cns = c1.selectbox("Nombre Empleado", dn.columns), c2.selectbox("Salario Básico", dn.columns), c3.selectbox("Pagos No Salariales", dn.columns)
+        if st.button("👮‍♀️ INICIAR INSPECCIÓN"):
             res = []
             for r in dn.to_dict('records'):
                 ibc, exc, est, msg = calcular_ugpp_fila(r, cs, cns)
-                res.append({"Emp": r[cn], "Exc": exc, "Est": est})
-            st.dataframe(pd.DataFrame(res))
+                res.append({"Empleado": r[cn], "Exceso a Cotizar": exc, "Estado": est})
+            st.dataframe(pd.DataFrame(res), use_container_width=True)
 
+# ------------------------------------------------------------------------------
+# 6. TESORERÍA
+# ------------------------------------------------------------------------------
 elif menu == "💰 Tesorería & Flujo de Caja":
-    st.header("💰 Tesorería"); saldo = st.number_input("Saldo Hoy")
-    c1, c2 = st.columns(2); fc = c1.file_uploader("CxC"); fp = c2.file_uploader("CxP")
-    if fc and fp: st.write("Módulo de proyección listo.")
+    st.header("💰 Radar de Liquidez 360°")
+    st.markdown("""
+    <div class='instruccion-box'>
+        <h4>💡 Proyección Financiera</h4>
+        <p>Cruza tus cuentas por cobrar vs. cuentas por pagar y visualiza el futuro de tu caja. Detecta brechas de liquidez antes de que ocurran.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    saldo_hoy = st.number_input("💵 Saldo Disponible Hoy ($):", min_value=0.0, format="%.2f")
+    c1, c2 = st.columns(2)
+    fcxc = c1.file_uploader("Cartera (CxC)", type=['xlsx'])
+    fcxp = c2.file_uploader("Proveedores (CxP)", type=['xlsx'])
+    if fcxc and fcxp:
+        dcxc = pd.read_excel(fcxc); dcxp = pd.read_excel(fcxp)
+        c1, c2, c3, c4 = st.columns(4)
+        cfc = c1.selectbox("Fecha Vencimiento CxC:", dcxc.columns); cvc = c2.selectbox("Valor CxC:", dcxc.columns)
+        cfp = c3.selectbox("Fecha Vencimiento CxP:", dcxp.columns); cvp = c4.selectbox("Valor CxP:", dcxp.columns)
+        if st.button("📈 GENERAR PROYECCIÓN"):
+            try:
+                dcxc['Fecha'] = pd.to_datetime(dcxc[cfc]); dcxp['Fecha'] = pd.to_datetime(dcxp[cfp])
+                fi = dcxc.groupby('Fecha')[cvc].sum().reset_index(); fe = dcxp.groupby('Fecha')[cvp].sum().reset_index()
+                cal = pd.merge(fi, fe, on='Fecha', how='outer').fillna(0)
+                cal.columns = ['Fecha', 'Ingresos', 'Egresos']; cal = cal.sort_values('Fecha')
+                cal['Saldo Proyectado'] = saldo_hoy + (cal['Ingresos'] - cal['Egresos']).cumsum()
+                st.area_chart(cal.set_index('Fecha')['Saldo Proyectado'])
+                st.dataframe(cal, use_container_width=True)
+                if api_key:
+                    with st.spinner("🤖 La IA está analizando tu flujo de caja..."):
+                        st.markdown(consultar_ia_gemini(f"Analiza este flujo de caja. Saldo inicial: {saldo_hoy}. Datos: {cal.head(10).to_string()}"))
+            except: st.error("Error en el formato de fechas. Asegúrate que sean columnas de fecha válidas.")
 
+# ------------------------------------------------------------------------------
+# 7. CALCULADORA COSTOS
+# ------------------------------------------------------------------------------
 elif menu == "💰 Calculadora Costos (Masiva)":
-    st.header("💰 Costeo Nómina"); ac = st.file_uploader("Personal")
+    st.header("💰 Costeo Real de Nómina")
+    st.markdown("""
+    <div class='instruccion-box'>
+        <h4>💡 Presupuesto Laboral</h4>
+        <p>Calcula el <strong>costo real empresa</strong> (Carga prestacional + Seguridad Social + Parafiscales) de toda tu planta de personal en un clic.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    ac = st.file_uploader("Cargar Listado Personal (.xlsx)", type=['xlsx'])
     if ac:
-        dc = pd.read_excel(ac); c1, c2, c3 = st.columns(3)
-        cn = c1.selectbox("Nom", dc.columns); cs = c2.selectbox("Sal", dc.columns); ca = c3.selectbox("Aux", dc.columns)
-        if st.button("CALCULAR"):
-            res = [{"Emp": r[cn], "Costo": calcular_costo_empresa_fila(r, cs, ca, None, "No")[0]} for r in dc.to_dict('records')]
-            st.dataframe(pd.DataFrame(res))
+        dc = pd.read_excel(ac)
+        c1, c2, c3, c4 = st.columns(4)
+        cn, cs, ca, car = c1.selectbox("Nombre", dc.columns), c2.selectbox("Salario", dc.columns), c3.selectbox("Aux Trans (SI/NO)", dc.columns), c4.selectbox("Riesgo ARL (1-5)", dc.columns)
+        ce = st.selectbox("Empresa Exonerada (SI/NO)", dc.columns)
+        if st.button("🧮 CALCULAR COSTOS"):
+            rc = []
+            for r in dc.to_dict('records'):
+                c, cr = calcular_costo_empresa_fila(r, cs, ca, car, ce)
+                rc.append({"Empleado": r[cn], "Costo Total Mensual": c})
+            st.dataframe(pd.DataFrame(rc), use_container_width=True)
 
+# ------------------------------------------------------------------------------
+# 8. ANALÍTICA
+# ------------------------------------------------------------------------------
 elif menu == "📊 Analítica Financiera":
-    st.header("📊 Analítica IA"); fi = st.file_uploader("Datos")
+    st.header("📊 Inteligencia Financiera IA")
+    st.markdown("""
+    <div class='instruccion-box'>
+        <h4>💡 Diagnóstico Automático</h4>
+        <p>Sube un Balance de Comprobación o Libro Diario. La IA analizará patrones, tendencias y posibles riesgos financieros o tributarios.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    fi = st.file_uploader("Cargar Datos Financieros", type=['xlsx', 'csv'])
     if fi and api_key:
-        df = pd.read_excel(fi); cd = st.selectbox("Desc", df.columns); cv = st.selectbox("Vlr", df.columns)
-        if st.button("ANALIZAR"):
-            res = df.groupby(cd)[cv].sum().sort_values(ascending=False).head(10); st.bar_chart(res)
-            st.markdown(consultar_ia_gemini(f"Analiza: {res.to_string()}"))
+        df = pd.read_csv(fi) if fi.name.endswith('.csv') else pd.read_excel(fi)
+        cd, cv = st.selectbox("Columna Descripción", df.columns), st.selectbox("Columna Valor", df.columns)
+        if st.button("🤖 ANALIZAR CON IA"):
+            res = df.groupby(cd)[cv].sum().sort_values(ascending=False).head(10)
+            st.bar_chart(res)
+            st.markdown(consultar_ia_gemini(f"Actúa como auditor financiero. Analiza estos saldos: {res.to_string()}"))
 
+# ------------------------------------------------------------------------------
+# 9. NARRADOR FINANCIERO & NOTAS NIIF (NUEVA INNOVACIÓN)
+# ------------------------------------------------------------------------------
 elif menu == "📈 Reportes Gerenciales & Notas NIIF (IA)":
-    st.header("📈 Narrador Financiero"); c1, c2 = st.columns(2)
-    f1 = c1.file_uploader("2025"); f2 = c2.file_uploader("2024")
-    if f1 and f2 and api_key:
-        d1 = pd.read_excel(f1); d2 = pd.read_excel(f2)
-        cta = st.selectbox("Cta", d1.columns); v1 = st.selectbox("V25", d1.columns); v2 = st.selectbox("V24", d2.columns)
-        if st.button("GENERAR"):
-            g1 = d1.groupby(cta)[v1].sum().reset_index(); g2 = d2.groupby(cta)[v2].sum().reset_index()
-            m = pd.merge(g1, g2, on=cta).fillna(0); m['Var'] = m[v1] - m[v2]
-            top = m.sort_values(by='Var', key=abs, ascending=False).head(5)
-            st.bar_chart(top.set_index(cta)['Var'])
-            with st.spinner("Redactando..."): st.markdown(consultar_ia_gemini(f"Redacta nota NIIF: {top.to_string()}"))
+    st.header("📈 Narrador Financiero & Revelaciones NIIF")
+    st.markdown("""
+    <div class='instruccion-box' style='border-left: 4px solid #ad00ff;'>
+        <h4>💡 Financial Storytelling</h4>
+        <p>No entregues solo números. Esta herramienta analiza tus Estados Financieros comparativos, detecta las variaciones más críticas y <strong>redacta automáticamente</strong> el informe para la Gerencia y las Notas de Revelación bajo NIIF.</p>
+    </div>
+    """, unsafe_allow_html=True)
 
+    # Carga de archivos comparativos
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("📅 Año Actual (2025)")
+        file_actual = st.file_uploader("Cargar Balance/P&G Año Actual", type=['xlsx'])
+    with col2:
+        st.subheader("📅 Año Anterior (2024)")
+        file_anterior = st.file_uploader("Cargar Balance/P&G Año Anterior", type=['xlsx'])
+
+    if file_actual and file_anterior:
+        try:
+            df_act = pd.read_excel(file_actual)
+            df_ant = pd.read_excel(file_anterior)
+            
+            st.write("---")
+            st.subheader("⚙️ Configuración del Análisis")
+            c1, c2, c3 = st.columns(3)
+            # Asumimos que el usuario selecciona la cuenta y el valor
+            col_cuenta = c1.selectbox("Columna 'Cuenta Contable':", df_act.columns)
+            col_valor_act = c2.selectbox("Valor Año Actual:", df_act.columns)
+            col_valor_ant = c3.selectbox("Valor Año Anterior:", df_ant.columns)
+
+            if st.button("✨ GENERAR INFORME INTELIGENTE") and api_key:
+                # 1. Preparación de Datos (Programación)
+                # Unimos los dos dataframes por la cuenta contable
+                df_act = df_act.groupby(col_cuenta)[col_valor_act].sum().reset_index()
+                df_ant = df_ant.groupby(col_cuenta)[col_valor_ant].sum().reset_index()
+                
+                merged = pd.merge(df_act, df_ant, on=col_cuenta, how='inner').fillna(0)
+                merged['Variacion_Abs'] = merged[col_valor_act] - merged[col_valor_ant]
+                merged['Variacion_Rel'] = (merged['Variacion_Abs'] / merged[col_valor_ant]).replace([float('inf'), -float('inf')], 0) * 100
+                
+                # Filtramos las variaciones más significativas (Top 5 subidas y bajadas) para no saturar a la IA
+                top_variaciones = merged.reindex(merged.Variacion_Abs.abs().sort_values(ascending=False).index).head(10)
+
+                # 2. Visualización de Alto Impacto (Diseño)
+                st.markdown("### 📊 Tablero de Control Gerencial")
+                
+                # KPIs Principales
+                # Intentamos identificar ingresos y gastos por convención contable (Clase 4 y 5)
+                # Convertimos a string para buscar el prefijo
+                ingresos_act = merged[merged[col_cuenta].astype(str).str.startswith('4', na=False)][col_valor_act].sum()
+                gastos_act = merged[merged[col_cuenta].astype(str).str.startswith('5', na=False)][col_valor_act].sum()
+                utilidad = ingresos_act - gastos_act # Simplificado
+                
+                k1, k2, k3 = st.columns(3)
+                k1.markdown(f"<div class='metric-box-green'><h3>Ingresos</h3><p>${ingresos_act:,.0f}</p></div>", unsafe_allow_html=True)
+                k2.markdown(f"<div class='metric-box-red'><h3>Gastos</h3><p>${gastos_act:,.0f}</p></div>", unsafe_allow_html=True)
+                k3.markdown(f"<div class='rut-card' style='text-align:center'><h3>Utilidad Aprox</h3><p>${utilidad:,.0f}</p></div>", unsafe_allow_html=True)
+                
+                st.markdown("<br>", unsafe_allow_html=True)
+                
+                # Gráfica de Variaciones
+                st.subheader("📉 Variaciones Significativas (Análisis Horizontal)")
+                st.bar_chart(top_variaciones.set_index(col_cuenta)['Variacion_Abs'])
+
+                # 3. Inteligencia Artificial (Contabilidad Experta)
+                st.subheader("🧠 Análisis Cualitativo & Notas NIIF")
+                
+                with st.spinner("🤖 El Consultor IA está redactando el informe..."):
+                    # Prompt de Ingeniería Avanzada
+                    prompt = f"""
+                    Actúa como un Contador Senior experto en NIIF y Análisis Financiero.
+                    Analiza la siguiente tabla de variaciones contables entre el año anterior y el actual:
+                    {top_variaciones.to_string()}
+
+                    GENERA DOS SALIDAS:
+                    1. UN INFORME GERENCIAL: Explicando en lenguaje de negocios (claro y directo para el dueño de la empresa) qué pasó con el dinero. Usa tono profesional pero empático. Enfócate en las causas probables de las variaciones grandes.
+                    2. BORRADOR DE NOTAS A LOS ESTADOS FINANCIEROS: Redacta la nota de revelación técnica bajo norma NIIF PYMES para las 3 cuentas con mayor variación, justificando la materialidad.
+                    
+                    Usa formato Markdown profesional.
+                    """
+                    
+                    respuesta_ia = consultar_ia_gemini(prompt)
+                    st.markdown(respuesta_ia)
+                    
+                    # Botón de descarga del texto
+                    st.download_button("📥 Descargar Informe (.txt)", respuesta_ia, "Informe_Gerencial_NIIF.txt")
+
+        except Exception as e:
+            st.error(f"Error procesando los archivos: {e}. Asegúrate de que las columnas tengan nombres similares y códigos contables.")
+
+# ------------------------------------------------------------------------------
+# 10. VALIDADOR RUT
+# ------------------------------------------------------------------------------
 elif menu == "🔍 Validador de RUT (Real)":
-    st.header("🔍 Validador RUT"); nit = st.text_input("NIT")
-    if st.button("Calcular"): st.success(f"DV: {calcular_dv_colombia(nit)}")
+    st.header("🔍 Validador Oficial RUT")
+    st.markdown("""
+    <div class='instruccion-box'>
+        <h4>💡 Herramienta de Verificación</h4>
+        <p>Calcula el Dígito de Verificación (DV) exacto usando el algoritmo oficial. Incluye acceso directo a la DIAN para verificar el estado del RUT.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    nit = st.text_input("Ingrese NIT o Cédula (Sin DV):", max_chars=15)
+    if st.button("🔢 CALCULAR DV") and nit:
+        dv = calcular_dv_colombia(nit)
+        st.markdown(f"<div class='rut-card'><h2>NIT: {nit} - {dv}</h2><p>Dígito de Verificación Correcto</p></div>", unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.link_button("🔗 Verificar Estado en Muisca (DIAN)", "https://muisca.dian.gov.co/WebRutMuisca/DefConsultaEstadoRUT.faces")
 
+# ------------------------------------------------------------------------------
+# 11. OCR FACTURAS
+# ------------------------------------------------------------------------------
 elif menu == "📸 Digitalización (OCR)":
-    st.header("📸 OCR"); img = st.file_uploader("Img")
-    if img and api_key and st.button("Leer"): st.write(ocr_factura(Image.open(img)))
+    st.header("📸 Digitalización de Facturas Físicas")
+    st.markdown("""
+    <div class='instruccion-box'>
+        <h4>💡 Del Papel al Excel</h4>
+        <p>Utiliza visión artificial para extraer datos clave (NIT, Fecha, Total) de fotos o escaneos de facturas físicas.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    af = st.file_uploader("Cargar Imágenes", type=["jpg", "png"], accept_multiple_files=True)
+    if af and st.button("🧠 PROCESAR IMÁGENES") and api_key:
+        do = []
+        bar = st.progress(0)
+        for i, f in enumerate(af):
+            bar.progress((i+1)/len(af)); info = ocr_factura(Image.open(f))
+            if info: do.append(info)
+        st.dataframe(pd.DataFrame(do), use_container_width=True)
 
-st.markdown("---"); st.markdown("<center><strong>Asistente Contable Pro</strong></center>", unsafe_allow_html=True)
+# ==============================================================================
+# PIE DE PÁGINA
+# ==============================================================================
+st.markdown("---")
+st.markdown("<center><strong>Asistente Contable Pro</strong> | Desarrollado para Contadores 4.0 | Bucaramanga, Colombia</center>", unsafe_allow_html=True)
