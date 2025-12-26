@@ -12,7 +12,7 @@ import xml.etree.ElementTree as ET
 # ==============================================================================
 # 1. CONFIGURACIÓN VISUAL
 # ==============================================================================
-st.set_page_config(page_title="Asistente Contable Pro 2025", page_icon="📊", layout="wide")
+st.set_page_config(page_title="Asistente Contable Pro 2025", page_icon="💼", layout="wide")
 
 # ==============================================================================
 # 2. CONEXIÓN A GOOGLE SHEETS (OPCIONAL)
@@ -26,18 +26,22 @@ except Exception:
     pass
 
 # ==============================================================================
-# 3. ESTILOS Y CONSTANTES
+# 3. ESTILOS Y CONSTANTES (MODIFICADO PARA IMÁGENES REALISTAS)
 # ==============================================================================
 hora_actual = datetime.now().hour
+# Seleccionamos imágenes profesionales y realistas según la hora
 if 5 <= hora_actual < 12:
-    saludo = "Buenos días"
-    icono_saludo = "☀️"
+    saludo_texto = "Buenos días"
+    # Imagen de oficina luminosa por la mañana
+    banner_img = "https://images.unsplash.com/photo-1497366754035-48c702a7cec3?ixlib=rb-4.0.3&auto=format&fit=crop&w=1470&q=80"
 elif 12 <= hora_actual < 18:
-    saludo = "Buenas tardes"
-    icono_saludo = "🌤️"
+    saludo_texto = "Buenas tardes"
+    # Imagen de distrito financiero activo
+    banner_img = "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?ixlib=rb-4.0.3&auto=format&fit=crop&w=1470&q=80"
 else:
-    saludo = "Buenas noches"
-    icono_saludo = "🌙"
+    saludo_texto = "Buenas noches"
+    # Imagen de ciudad y oficina de noche
+    banner_img = "https://images.unsplash.com/photo-1497215728101-856f4ea42174?ixlib=rb-4.0.3&auto=format&fit=crop&w=1470&q=80"
 
 st.markdown("""
     <style>
@@ -46,76 +50,102 @@ st.markdown("""
         background-color: #0e1117 !important;
         color: #e0e0e0 !important;
     }
-    
     html, body, [class*="css"] {
         font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
     }
 
-    /* --- TÍTULOS --- */
-    h1 {
-        background: -webkit-linear-gradient(45deg, #0d6efd, #00d2ff);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-weight: 800 !important;
-        letter-spacing: -1px;
+    /* --- NUEVO: BANNERS REALISTAS CON TEXTO SUPERPUESTO --- */
+    .banner-container {
+        position: relative;
+        text-align: center;
+        color: white;
+        margin-bottom: 30px;
+        border-radius: 15px;
+        overflow: hidden;
+        box-shadow: 0 15px 30px rgba(0,0,0,0.5);
     }
-    h2, h3 { color: #f0f2f6 !important; font-weight: 700; }
+    .banner-image {
+        width: 100%;
+        height: 280px; /* Altura fija para el banner */
+        object-fit: cover;
+        filter: brightness(50%); /* Oscurecer la imagen para que el texto resalte */
+    }
+    .banner-text {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 95%;
+    }
+    .banner-text h1 {
+        font-size: 3.8rem;
+        font-weight: 900;
+        letter-spacing: -1px;
+        text-shadow: 2px 2px 10px rgba(0,0,0,0.9); /* Sombra fuerte para visibilidad */
+        margin: 0;
+        color: white !important;
+        background: none !important; /* Quitamos el degradado anterior en el banner */
+        -webkit-text-fill-color: white !important;
+    }
+    .banner-text p {
+        font-size: 1.6rem;
+        font-weight: 500;
+        text-shadow: 1px 1px 5px rgba(0,0,0,0.9);
+        margin-top: 10px;
+        color: #e0e0e0;
+    }
 
+    /* --- TÍTULOS ESTÁNDAR (Fuera del banner) --- */
+    h2, h3 { color: #f0f2f6 !important; font-weight: 700; }
+    
     /* --- TARJETAS (GLASSMORPHISM) --- */
     .instruccion-box, .rut-card, .reporte-box, .tutorial-step {
-        background: rgba(38, 39, 48, 0.7) !important;
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(38, 39, 48, 0.8) !important; /* Un poco más opaco para seriedad */
+        backdrop-filter: blur(15px);
+        border: 1px solid rgba(255, 255, 255, 0.15);
         border-radius: 12px;
-        padding: 20px;
+        padding: 25px;
         margin-bottom: 25px;
         transition: transform 0.3s ease, box-shadow 0.3s ease;
     }
 
     .instruccion-box:hover, .rut-card:hover, .reporte-box:hover {
         transform: translateY(-5px);
-        box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+        box-shadow: 0 12px 25px rgba(0,0,0,0.5);
         border-color: #0d6efd;
     }
 
     .instruccion-box { border-left: 4px solid #0d6efd; }
-    .instruccion-box h4 { color: #0d6efd !important; margin-top: 0; font-weight: bold; }
+    .instruccion-box h4 { color: #0d6efd !important; margin-top: 0; font-weight: bold; font-size: 1.2rem;}
     
     /* --- BOTONES --- */
     .stButton>button {
-        background: linear-gradient(90deg, #0d6efd 0%, #0056b3 100%) !important;
+        background: linear-gradient(90deg, #0d6efd 0%, #004494 100%) !important; /* Degradado más serio */
         color: white !important;
-        border-radius: 8px;
+        border-radius: 6px; /* Bordes menos redondeados */
         font-weight: 600;
         border: none;
         height: 3.5em;
         width: 100%;
         transition: all 0.3s ease;
         box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        text-transform: uppercase; /* Texto en mayúsculas para seriedad */
+        letter-spacing: 1px;
     }
     
     .stButton>button:hover {
-        background: linear-gradient(90deg, #0b5ed7 0%, #004494 100%) !important;
-        box-shadow: 0 6px 12px rgba(13, 110, 253, 0.4);
-        transform: scale(1.02);
+        background: linear-gradient(90deg, #0b5ed7 0%, #003370 100%) !important;
+        box-shadow: 0 6px 12px rgba(13, 110, 253, 0.5);
+        transform: scale(1.01);
     }
 
     /* --- ALERTAS --- */
-    .metric-box-red { 
-        background: rgba(62, 18, 22, 0.8) !important; 
-        color: #ffaeb6 !important; 
-        padding: 15px; border-radius: 10px; text-align: center; border: 1px solid #842029;
-    }
-    .metric-box-green { 
-        background: rgba(15, 41, 30, 0.8) !important; 
-        color: #a3cfbb !important; 
-        padding: 15px; border-radius: 10px; text-align: center; border: 1px solid #0f5132;
-    }
+    .metric-box-red { background: rgba(62, 18, 22, 0.9) !important; color: #ffaeb6 !important; padding: 15px; border-radius: 10px; text-align: center; border: 1px solid #842029; }
+    .metric-box-green { background: rgba(15, 41, 30, 0.9) !important; color: #a3cfbb !important; padding: 15px; border-radius: 10px; text-align: center; border: 1px solid #0f5132; }
     
     ::-webkit-scrollbar { width: 10px; }
     ::-webkit-scrollbar-track { background: #0e1117; }
     ::-webkit-scrollbar-thumb { background: #303030; border-radius: 5px; }
-    ::-webkit-scrollbar-thumb:hover { background: #0d6efd; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -240,13 +270,14 @@ def parsear_xml_dian(archivo_xml):
 # 5. INTERFAZ DE USUARIO (SIDEBAR & MENÚ)
 # ==============================================================================
 with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/9320/9320399.png", width=80)
+    # Icono más profesional y realista (estilo 3D/empresarial)
+    st.image("https://cdn-icons-png.flaticon.com/512/5360/5360938.png", width=85)
     
-    st.markdown("### 🏢 Panel de Control")
+    st.markdown("### 💼 Suite Financiera Pro")
     st.markdown("---")
     
     opciones_menu = [
-        "🏠 Inicio / Quiénes Somos",
+        "🏠 Inicio / Dashboard",
         "⚖️ Cruce DIAN vs Contabilidad",
         "📧 Lector XML (Facturación)",
         "🤝 Conciliador Bancario (IA)",
@@ -260,82 +291,90 @@ with st.sidebar:
         "📸 Digitalización (OCR)"
     ]
     
-    menu = st.radio("Herramientas Profesionales:", opciones_menu)
+    menu = st.radio("Módulos Operativos:", opciones_menu)
     
     st.markdown("---")
     with st.expander("🔐 Configuración & Seguridad"):
-        st.info("Pega aquí tu llave para activar el modo 'Cerebro IA':")
+        st.info("Introduce tu API Key para activar el análisis avanzado con IA:")
         api_key = st.text_input("API Key Google:", type="password")
         if api_key: genai.configure(api_key=api_key)
     
-    st.markdown("<br><center><small>v8.0 | Build 2025</small></center>", unsafe_allow_html=True)
+    st.markdown("<br><center><small>v8.2 | Enterprise Edition 2025</small></center>", unsafe_allow_html=True)
 
 # ==============================================================================
 # 6. DESARROLLO DE PESTAÑAS (PÁGINAS)
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
-# 0. INICIO / QUIÉNES SOMOS
+# 0. INICIO / DASHBOARD (NUEVO BANNER REALISTA)
 # ------------------------------------------------------------------------------
-if menu == "🏠 Inicio / Quiénes Somos":
-    st.markdown(f"# {icono_saludo} {saludo}, Colega.")
-    st.markdown("### Bienvenido a tu Centro de Comando Contable Inteligente.")
+if menu == "🏠 Inicio / Dashboard":
+    # Inserción del Banner Realista con Texto Superpuesto
+    st.markdown(f"""
+        <div class="banner-container">
+            <img src="{banner_img}" class="banner-image">
+            <div class="banner-text">
+                <h1>{saludo_texto}, Colega.</h1>
+                <p>Bienvenido a tu Centro de Comando Contable Profesional</p>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
     
     col_intro1, col_intro2 = st.columns([1.5, 1])
     
     with col_intro1:
         st.markdown("""
-        <div class='instruccion-box' style='border-left: 4px solid #00d2ff;'>
-            <h4>🚀 La Nueva Era Contable</h4>
-            <p>Olvídate de la "carpintería". Esta suite ha sido diseñada para automatizar lo operativo y dejarte tiempo para lo estratégico.</p>
-            <p><strong>Nuestra Filosofía:</strong> Menos clics, más análisis. Menos errores, más tranquilidad.</p>
+        <div class='instruccion-box' style='border-left: 4px solid #0d6efd;'>
+            <h4>🚀 Eficiencia Estratégica</h4>
+            <p>Esta suite ha sido diseñada para automatizar la carga operativa y permitir un enfoque en el análisis financiero estratégico.</p>
+            <p><strong>Filosofía:</strong> Precisión, automatización y análisis profundo.</p>
         </div>
         """, unsafe_allow_html=True)
         
-        st.markdown("### 🛠️ Herramientas de Alto Impacto:")
+        st.markdown("### 🛠️ Herramientas Clave:")
         c_tool1, c_tool2 = st.columns(2)
         with c_tool1:
-            st.info("⚖️ **Cruce DIAN:** Compara lo que la DIAN sabe de ti vs. tu Contabilidad.")
-            st.info("📧 **XML Miner:** Extrae datos de miles de facturas en segundos.")
+            st.info("**Cruce DIAN:** Auditoría fiscal comparativa.")
+            st.info("**XML Miner:** Extracción masiva de datos.")
         with c_tool2:
-            st.info("🤝 **Bank Match:** Concilia bancos con IA.")
-            st.info("📈 **Notas NIIF:** Redacción automática de revelaciones.")
+            st.info("**Bank Match IA:** Conciliación inteligente.")
+            st.info("**Notas NIIF:** Redacción automática de reportes.")
         
     with col_intro2:
         st.markdown("""
         <div class='reporte-box'>
-            <h4>💡 Workflow Recomendado</h4>
+            <h4>💡 Flujo de Trabajo Recomendado</h4>
             <ol>
-                <li>Descarga auxiliares de tu ERP (Siigo, World Office).</li>
-                <li>Descarga el reporte de terceros de la DIAN.</li>
-                <li>Usa el "Cruce DIAN" para detectar ingresos/costos omitidos.</li>
-                <li>Usa "Reportes NIIF" para redactar las notas finales.</li>
+                <li>Carga de auxiliares ERP.</li>
+                <li>Descarga de información exógena DIAN.</li>
+                <li>Ejecución de Cruce y Auditoría de Gastos.</li>
+                <li>Generación de Reportes y Notas NIIF.</li>
             </ol>
         </div>
         """, unsafe_allow_html=True)
 
     st.markdown("---")
     
-    st.subheader("🔑 Activación del Núcleo IA (Gratuito)")
+    st.subheader("🔑 Activación del Núcleo IA")
     
-    # Video Tutorial añadido aquí
+    # Video Tutorial
     st.video("https://www.youtube.com/watch?v=dHn3d66Qppw")
     
     c1, c2, c3 = st.columns(3)
     with c1:
         st.markdown("""
         <div class='tutorial-step'>
-        <h4>1. Acceso</h4>
-        <p>Entra a Google AI Studio con tu cuenta Gmail.</p>
-        <p><a href='https://aistudio.google.com/app/apikey' target='_blank'>🔗 Ir al sitio oficial</a></p>
+        <h4>1. Acceso Seguro</h4>
+        <p>Ingresa a Google AI Studio.</p>
+        <p><a href='https://aistudio.google.com/app/apikey' target='_blank'>🔗 Sitio Oficial</a></p>
         </div>
         """, unsafe_allow_html=True)
     
     with c2:
         st.markdown("""
         <div class='tutorial-step'>
-        <h4>2. Creación</h4>
-        <p>Busca el botón azul <strong>"Get API Key"</strong> y dale clic a "Create Key".</p>
+        <h4>2. Generación de Llave</h4>
+        <p>Crea una nueva API Key en el panel.</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -343,7 +382,7 @@ if menu == "🏠 Inicio / Quiénes Somos":
         st.markdown("""
         <div class='tutorial-step'>
         <h4>3. Conexión</h4>
-        <p>Copia el código (AIza...) y pégalo en el menú lateral izquierdo.</p>
+        <p>Ingresa el código en el panel lateral de seguridad.</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -354,32 +393,32 @@ elif menu == "⚖️ Cruce DIAN vs Contabilidad":
     st.header("⚖️ Auditor de Exógena (Cruce DIAN)")
     st.markdown("""
     <div class='instruccion-box'>
-        <h4>💡 El "Detector de Mentiras" Fiscal</h4>
-        <p>Esta herramienta es vital para el cierre contable. Compara la información que la DIAN tiene de ti (Reporte de Terceros) contra tu Contabilidad Interna. Detecta facturas que proveedores reportaron pero tú no causaste, o ingresos que olvidaste declarar.</p>
+        <h4>💡 Auditoría Fiscal Comparativa</h4>
+        <p>Compara la información reportada por terceros a la DIAN contra la contabilidad interna para detectar inconsistencias, pasivos omitidos o ingresos no declarados.</p>
     </div>
     """, unsafe_allow_html=True)
     
     col_dian, col_conta = st.columns(2)
     with col_dian:
-        st.subheader("🏛️ 1. Archivo DIAN")
-        file_dian = st.file_uploader("Subir 'Reporte Terceros DIAN' (.xlsx)", type=['xlsx'])
+        st.subheader("🏛️ 1. Archivo DIAN (XLSX)")
+        file_dian = st.file_uploader("Cargar Reporte Terceros", type=['xlsx'])
     with col_conta:
-        st.subheader("📒 2. Contabilidad")
-        file_conta = st.file_uploader("Subir Auxiliar por Tercero (.xlsx)", type=['xlsx'])
+        st.subheader("📒 2. Contabilidad Interna (XLSX)")
+        file_conta = st.file_uploader("Cargar Auxiliar por Tercero", type=['xlsx'])
         
     if file_dian and file_conta:
         df_dian = pd.read_excel(file_dian)
         df_conta = pd.read_excel(file_conta)
         
         st.write("---")
-        st.subheader("⚙️ Mapeo de Columnas (NIT y Valor)")
+        st.subheader("⚙️ Mapeo de Datos")
         c1, c2, c3, c4 = st.columns(4)
         nit_dian = c1.selectbox("NIT (Archivo DIAN):", df_dian.columns)
         val_dian = c2.selectbox("Valor (Archivo DIAN):", df_dian.columns)
-        nit_conta = c3.selectbox("NIT (Tu Contabilidad):", df_conta.columns)
-        val_conta = c4.selectbox("Saldo (Tu Contabilidad):", df_conta.columns)
+        nit_conta = c3.selectbox("NIT (Contabilidad):", df_conta.columns)
+        val_conta = c4.selectbox("Saldo (Contabilidad):", df_conta.columns)
         
-        if st.button("🔎 EJECUTAR CRUCE FISCAL"):
+        if st.button("🔎 EJECUTAR AUDITORÍA FISCAL"):
             dian_grouped = df_dian.groupby(nit_dian)[val_dian].sum().reset_index()
             dian_grouped.columns = ['NIT', 'Valor_DIAN']
             
@@ -389,40 +428,40 @@ elif menu == "⚖️ Cruce DIAN vs Contabilidad":
             cruce = pd.merge(dian_grouped, conta_grouped, on='NIT', how='outer').fillna(0)
             cruce['Diferencia'] = cruce['Valor_DIAN'] - cruce['Valor_Conta']
             
-            diferencias = cruce[abs(cruce['Diferencia']) > 1000] # Umbral de $1.000 pesos
+            diferencias = cruce[abs(cruce['Diferencia']) > 1000] # Umbral de materialidad
             
-            st.success("Cruce Finalizado.")
+            st.success("Auditoría Finalizada.")
             
             m1, m2 = st.columns(2)
             m1.metric("Total Reportado DIAN", f"${cruce['Valor_DIAN'].sum():,.0f}")
-            m2.metric("Total Tu Contabilidad", f"${cruce['Valor_Conta'].sum():,.0f}")
+            m2.metric("Total Contabilidad", f"${cruce['Valor_Conta'].sum():,.0f}")
             
             if not diferencias.empty:
-                st.error(f"⚠️ Se encontraron {len(diferencias)} terceros con diferencias significativas.")
+                st.error(f"⚠️ Se encontraron {len(diferencias)} terceros con diferencias materiales.")
                 st.dataframe(diferencias.style.format("{:,.0f}"), use_container_width=True)
                 
                 out = io.BytesIO()
                 with pd.ExcelWriter(out, engine='xlsxwriter') as w:
                     diferencias.to_excel(w, index=False)
-                st.download_button("📥 Descargar Reporte de Diferencias", out.getvalue(), "Auditoria_Exogena.xlsx")
+                st.download_button("📥 Descargar Informe de Diferencias", out.getvalue(), "Auditoria_Exogena.xlsx")
             else:
                 st.balloons()
-                st.success("✅ ¡Increíble! Tu contabilidad cuadra perfectamente con la DIAN.")
+                st.success("✅ Sin hallazgos. La contabilidad concilia con la información exógena.")
 
 # ------------------------------------------------------------------------------
 # 2. LECTOR XML
 # ------------------------------------------------------------------------------
 elif menu == "📧 Lector XML (Facturación)":
-    st.header("📧 Minería de Datos XML (Facturación)")
+    st.header("📧 Minería de Datos XML (Facturación Electrónica)")
     st.markdown("""
     <div class='instruccion-box'>
-        <h4>💡 Auditoría desde la Fuente</h4>
-        <p>El PDF es solo una imagen. La verdad legal está en el XML. Arrastra aquí tus archivos de Facturación Electrónica para generar un reporte contable exacto en segundos.</p>
+        <h4>💡 Extracción de Datos Fuente</h4>
+        <p>Procesamiento masivo de archivos XML de facturación electrónica para generar reportes contables exactos directamente desde la fuente legal.</p>
     </div>
     """, unsafe_allow_html=True)
     
-    archivos_xml = st.file_uploader("Arrastra XMLs (Máx 5GB)", type=['xml'], accept_multiple_files=True)
-    if archivos_xml and st.button("🚀 INICIAR EXTRACCIÓN MASIVA"):
+    archivos_xml = st.file_uploader("Cargar Archivos XML (Máx 5GB)", type=['xml'], accept_multiple_files=True)
+    if archivos_xml and st.button("🚀 INICIAR PROCESAMIENTO MASIVO"):
         datos_xml = []
         barra = st.progress(0)
         for i, f in enumerate(archivos_xml):
@@ -432,7 +471,7 @@ elif menu == "📧 Lector XML (Facturación)":
         st.dataframe(df_xml, use_container_width=True)
         out = io.BytesIO()
         with pd.ExcelWriter(out, engine='xlsxwriter') as w: df_xml.to_excel(w, index=False)
-        st.download_button("📥 Descargar Reporte Maestro (.xlsx)", out.getvalue(), "Resumen_XML.xlsx")
+        st.download_button("📥 Descargar Reporte Maestro (.xlsx)", out.getvalue(), "Resumen_XML_Facturacion.xlsx")
 
 # ------------------------------------------------------------------------------
 # 3. CONCILIADOR BANCARIO
@@ -441,28 +480,28 @@ elif menu == "🤝 Conciliador Bancario (IA)":
     st.header("🤝 Conciliación Bancaria Inteligente")
     st.markdown("""
     <div class='instruccion-box'>
-        <h4>💡 Cruce Automático</h4>
-        <p>Sube tu extracto y tu libro auxiliar. El algoritmo buscará coincidencias por valor y fecha aproximada, identificando automáticamente las partidas pendientes.</p>
+        <h4>💡 Automatización de Cruces</h4>
+        <p>Algoritmo de emparejamiento automático entre extractos bancarios y libros auxiliares basado en valores y rangos de fechas flexibles.</p>
     </div>
     """, unsafe_allow_html=True)
     
     col_banco, col_libro = st.columns(2)
     with col_banco:
-        st.subheader("🏦 Extracto Bancario")
-        file_banco = st.file_uploader("Subir Excel Banco", type=['xlsx'])
+        st.subheader("🏦 Extracto Bancario (XLSX)")
+        file_banco = st.file_uploader("Cargar Extracto", type=['xlsx'])
     with col_libro:
-        st.subheader("📒 Libro Auxiliar")
-        file_libro = st.file_uploader("Subir Excel Contabilidad", type=['xlsx'])
+        st.subheader("📒 Libro Auxiliar Bancos (XLSX)")
+        file_libro = st.file_uploader("Cargar Libro Auxiliar", type=['xlsx'])
     if file_banco and file_libro:
         df_banco = pd.read_excel(file_banco); df_libro = pd.read_excel(file_libro)
         c1, c2, c3, c4 = st.columns(4)
         col_fecha_b = c1.selectbox("Fecha Banco:", df_banco.columns, key="fb")
         col_valor_b = c2.selectbox("Valor Banco:", df_banco.columns, key="vb")
-        col_fecha_l = c3.selectbox("Fecha Conta:", df_libro.columns, key="fl")
-        col_valor_l = c4.selectbox("Valor Conta:", df_libro.columns, key="vl")
+        col_fecha_l = c3.selectbox("Fecha Libro:", df_libro.columns, key="fl")
+        col_valor_l = c4.selectbox("Valor Libro:", df_libro.columns, key="vl")
         col_desc_b = st.selectbox("Descripción Banco (Para detalle):", df_banco.columns, key="db")
         
-        if st.button("🔄 EJECUTAR CONCILIACIÓN"):
+        if st.button("🔄 EJECUTAR CONCILIACIÓN AUTOMÁTICA"):
             df_banco['Fecha_Dt'] = pd.to_datetime(df_banco[col_fecha_b])
             df_libro['Fecha_Dt'] = pd.to_datetime(df_libro[col_fecha_l])
             df_banco['Conciliado'] = False; df_libro['Conciliado'] = False
@@ -486,11 +525,11 @@ elif menu == "🤝 Conciliador Bancario (IA)":
 # 4. AUDITORÍA GASTOS
 # ------------------------------------------------------------------------------
 elif menu == "📂 Auditoría Masiva de Gastos":
-    st.header("📂 Auditoría Fiscal Masiva")
+    st.header("📂 Auditoría Fiscal de Gastos (Art. 771-5)")
     st.markdown("""
     <div class='instruccion-box'>
-        <h4>💡 Escudo Fiscal (Art. 771-5)</h4>
-        <p>Analiza miles de filas de tu auxiliar de gastos. Detecta automáticamente pagos en efectivo que superan los topes y operaciones sin retención en la fuente.</p>
+        <h4>💡 Verificación de Deducibilidad</h4>
+        <p>Análisis masivo del auxiliar de gastos para detectar riesgos fiscales: pagos en efectivo superiores a los topes legales y operaciones sin bases de retención mínimas.</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -498,9 +537,9 @@ elif menu == "📂 Auditoría Masiva de Gastos":
     if ar:
         df = pd.read_excel(ar)
         c1, c2, c3, c4 = st.columns(4)
-        cf, ct, cc, cv = c1.selectbox("Fecha", df.columns), c2.selectbox("Tercero", df.columns), c3.selectbox("Concepto", df.columns), c4.selectbox("Valor", df.columns)
-        cm = st.selectbox("Método de Pago", ["No disponible"]+list(df.columns))
-        if st.button("🔍 AUDITAR AHORA"):
+        cf, ct, cc, cv = c1.selectbox("Columna Fecha", df.columns), c2.selectbox("Columna Tercero", df.columns), c3.selectbox("Columna Concepto", df.columns), c4.selectbox("Columna Valor", df.columns)
+        cm = st.selectbox("Columna Método de Pago (Opcional)", ["No disponible"]+list(df.columns))
+        if st.button("🔍 EJECUTAR AUDITORÍA FISCAL"):
             res = []
             for r in df.to_dict('records'):
                 met = r[cm] if cm != "No disponible" else "Efectivo"
@@ -515,48 +554,48 @@ elif menu == "📂 Auditoría Masiva de Gastos":
 # ------------------------------------------------------------------------------
 # 5. ESCÁNER NÓMINA UGPP
 # ------------------------------------------------------------------------------
-elif menu == "👥 Escáner de Nómina (UGPP)":
-    st.header("👥 Escáner de Riesgo UGPP")
+elif menu == "👥 Escáner de Nómina (Riesgo UGPP)":
+    st.header("👥 Escáner de Riesgo UGPP (Ley 1393)")
     st.markdown("""
     <div class='instruccion-box'>
-        <h4>💡 Ley 1393: Regla del 40%</h4>
-        <p>Evita sanciones millonarias. Este módulo verifica empleado por empleado si los pagos no salariales exceden el límite permitido y calcula el ajuste exacto para la PILA.</p>
+        <h4>💡 Verificación Regla del 40%</h4>
+        <p>Auditoría de nómina para validar el cumplimiento del límite de pagos no salariales y calcular los ajustes requeridos en el IBC de la PILA.</p>
     </div>
     """, unsafe_allow_html=True)
     
-    an = st.file_uploader("Cargar Nómina (.xlsx)", type=['xlsx'])
+    an = st.file_uploader("Cargar Archivo de Nómina (.xlsx)", type=['xlsx'])
     if an:
         dn = pd.read_excel(an)
         c1, c2, c3 = st.columns(3)
-        cn, cs, cns = c1.selectbox("Nombre Empleado", dn.columns), c2.selectbox("Salario Básico", dn.columns), c3.selectbox("Pagos No Salariales", dn.columns)
-        if st.button("👮‍♀️ INICIAR INSPECCIÓN"):
+        cn, cs, cns = c1.selectbox("Columna Empleado", dn.columns), c2.selectbox("Columna Salario Básico", dn.columns), c3.selectbox("Columna Total No Salarial", dn.columns)
+        if st.button("👮‍♀️ INICIAR INSPECCIÓN UGPP"):
             res = []
             for r in dn.to_dict('records'):
                 ibc, exc, est, msg = calcular_ugpp_fila(r, cs, cns)
-                res.append({"Empleado": r[cn], "Exceso a Cotizar": exc, "Estado": est})
+                res.append({"Empleado": r[cn], "Exceso a Cotizar (Ajuste IBC)": exc, "Estado": est, "Detalle": msg})
             st.dataframe(pd.DataFrame(res), use_container_width=True)
 
 # ------------------------------------------------------------------------------
 # 6. TESORERÍA
 # ------------------------------------------------------------------------------
 elif menu == "💰 Tesorería & Flujo de Caja":
-    st.header("💰 Radar de Liquidez 360°")
+    st.header("💰 Proyección de Flujo de Caja")
     st.markdown("""
     <div class='instruccion-box'>
-        <h4>💡 Proyección Financiera</h4>
-        <p>Cruza tus cuentas por cobrar vs. cuentas por pagar y visualiza el futuro de tu caja. Detecta brechas de liquidez antes de que ocurran.</p>
+        <h4>💡 Radar de Liquidez</h4>
+        <p>Proyección financiera basada en el cruce de cuentas por cobrar y cuentas por pagar para identificar brechas de liquidez futuras.</p>
     </div>
     """, unsafe_allow_html=True)
     
-    saldo_hoy = st.number_input("💵 Saldo Disponible Hoy ($):", min_value=0.0, format="%.2f")
+    saldo_hoy = st.number_input("💵 Saldo Disponible en Bancos Hoy ($):", min_value=0.0, format="%.2f")
     c1, c2 = st.columns(2)
-    fcxc = c1.file_uploader("Cartera (CxC)", type=['xlsx'])
-    fcxp = c2.file_uploader("Proveedores (CxP)", type=['xlsx'])
+    fcxc = c1.file_uploader("Cargar Cartera (CxC)", type=['xlsx'])
+    fcxp = c2.file_uploader("Cargar Proveedores (CxP)", type=['xlsx'])
     if fcxc and fcxp:
         dcxc = pd.read_excel(fcxc); dcxp = pd.read_excel(fcxp)
         c1, c2, c3, c4 = st.columns(4)
-        cfc = c1.selectbox("Fecha Vencimiento CxC:", dcxc.columns); cvc = c2.selectbox("Valor CxC:", dcxc.columns)
-        cfp = c3.selectbox("Fecha Vencimiento CxP:", dcxp.columns); cvp = c4.selectbox("Valor CxP:", dcxp.columns)
+        cfc = c1.selectbox("Fecha Vcto CxC:", dcxc.columns); cvc = c2.selectbox("Valor CxC:", dcxc.columns)
+        cfp = c3.selectbox("Fecha Vcto CxP:", dcxp.columns); cvp = c4.selectbox("Valor CxP:", dcxp.columns)
         if st.button("📈 GENERAR PROYECCIÓN"):
             try:
                 dcxc['Fecha'] = pd.to_datetime(dcxc[cfc]); dcxp['Fecha'] = pd.to_datetime(dcxp[cfp])
@@ -567,76 +606,78 @@ elif menu == "💰 Tesorería & Flujo de Caja":
                 st.area_chart(cal.set_index('Fecha')['Saldo Proyectado'])
                 st.dataframe(cal, use_container_width=True)
                 if api_key:
-                    with st.spinner("🤖 La IA está analizando tu flujo de caja..."):
-                        st.markdown(consultar_ia_gemini(f"Analiza este flujo de caja. Saldo inicial: {saldo_hoy}. Datos: {cal.head(10).to_string()}"))
-            except: st.error("Error en el formato de fechas. Asegúrate que sean columnas de fecha válidas.")
+                    with st.spinner("🤖 La IA está analizando la proyección de liquidez..."):
+                        st.markdown(consultar_ia_gemini(f"Actúa como gerente financiero. Analiza este flujo de caja proyectado y da recomendaciones. Saldo inicial: {saldo_hoy}. Datos: {cal.head(15).to_string()}"))
+            except: st.error("Error en el formato de fechas. Asegúrese de seleccionar columnas de fecha válidas.")
 
 # ------------------------------------------------------------------------------
 # 7. CALCULADORA COSTOS
 # ------------------------------------------------------------------------------
 elif menu == "💰 Calculadora Costos (Masiva)":
-    st.header("💰 Costeo Real de Nómina")
+    st.header("💰 Calculadora de Costos Laborales")
     st.markdown("""
     <div class='instruccion-box'>
-        <h4>💡 Presupuesto Laboral</h4>
-        <p>Calcula el <strong>costo real empresa</strong> (Carga prestacional + Seguridad Social + Parafiscales) de toda tu planta de personal en un clic.</p>
+        <h4>💡 Costeo Real de Nómina</h4>
+        <p>Cálculo masivo del costo total empresa, incluyendo carga prestacional, seguridad social y parafiscales para toda la planta de personal.</p>
     </div>
     """, unsafe_allow_html=True)
     
-    ac = st.file_uploader("Cargar Listado Personal (.xlsx)", type=['xlsx'])
+    ac = st.file_uploader("Cargar Listado de Personal (.xlsx)", type=['xlsx'])
     if ac:
         dc = pd.read_excel(ac)
         c1, c2, c3, c4 = st.columns(4)
-        cn, cs, ca, car = c1.selectbox("Nombre", dc.columns), c2.selectbox("Salario", dc.columns), c3.selectbox("Aux Trans (SI/NO)", dc.columns), c4.selectbox("Riesgo ARL (1-5)", dc.columns)
-        ce = st.selectbox("Empresa Exonerada (SI/NO)", dc.columns)
-        if st.button("🧮 CALCULAR COSTOS"):
+        cn, cs, ca, car = c1.selectbox("Col. Nombre", dc.columns), c2.selectbox("Col. Salario", dc.columns), c3.selectbox("Col. Aux. Trans (SI/NO)", dc.columns), c4.selectbox("Col. Riesgo ARL (1-5)", dc.columns)
+        ce = st.selectbox("Col. Empresa Exonerada (SI/NO)", dc.columns)
+        if st.button("🧮 CALCULAR COSTOS TOTALES"):
             rc = []
             for r in dc.to_dict('records'):
                 c, cr = calcular_costo_empresa_fila(r, cs, ca, car, ce)
-                rc.append({"Empleado": r[cn], "Costo Total Mensual": c})
-            st.dataframe(pd.DataFrame(rc), use_container_width=True)
+                rc.append({"Empleado": r[cn], "Salario Base": r[cs], "Costo Total Mensual Empresa": c, "Factor Prestacional Adicional": cr})
+            st.dataframe(pd.DataFrame(rc).style.format({"Salario Base": "${:,.0f}", "Costo Total Mensual Empresa": "${:,.0f}", "Factor Prestacional Adicional": "${:,.0f}"}), use_container_width=True)
 
 # ------------------------------------------------------------------------------
 # 8. ANALÍTICA
 # ------------------------------------------------------------------------------
 elif menu == "📊 Analítica Financiera":
-    st.header("📊 Inteligencia Financiera IA")
+    st.header("📊 Inteligencia Financiera y Diagnóstico")
     st.markdown("""
     <div class='instruccion-box'>
-        <h4>💡 Diagnóstico Automático</h4>
-        <p>Sube un Balance de Comprobación o Libro Diario. La IA analizará patrones, tendencias y posibles riesgos financieros o tributarios.</p>
+        <h4>💡 Diagnóstico Automático con IA</h4>
+        <p>Análisis de Balances de Comprobación o Libros Diario para identificar patrones, tendencias y posibles riesgos financieros o tributarios mediante inteligencia artificial.</p>
     </div>
     """, unsafe_allow_html=True)
     
-    fi = st.file_uploader("Cargar Datos Financieros", type=['xlsx', 'csv'])
+    fi = st.file_uploader("Cargar Datos Financieros (XLSX/CSV)", type=['xlsx', 'csv'])
     if fi and api_key:
         df = pd.read_csv(fi) if fi.name.endswith('.csv') else pd.read_excel(fi)
-        cd, cv = st.selectbox("Columna Descripción", df.columns), st.selectbox("Columna Valor", df.columns)
-        if st.button("🤖 ANALIZAR CON IA"):
+        cd, cv = st.selectbox("Columna Descripción/Cuenta", df.columns), st.selectbox("Columna Valor/Saldo", df.columns)
+        if st.button("🤖 EJECUTAR ANÁLISIS IA"):
             res = df.groupby(cd)[cv].sum().sort_values(ascending=False).head(10)
+            st.subheader("Top 10 Rubros Más Significativos")
             st.bar_chart(res)
-            st.markdown(consultar_ia_gemini(f"Actúa como auditor financiero. Analiza estos saldos: {res.to_string()}"))
+            with st.spinner("🤖 El auditor IA está analizando los datos..."):
+                st.markdown(consultar_ia_gemini(f"Actúa como auditor financiero senior. Analiza estos saldos contables y destaca puntos de atención: {res.to_string()}"))
 
 # ------------------------------------------------------------------------------
 # 9. NARRADOR FINANCIERO & NOTAS NIIF (IA)
 # ------------------------------------------------------------------------------
 elif menu == "📈 Reportes Gerenciales & Notas NIIF (IA)":
-    st.header("📈 Narrador Financiero & Revelaciones NIIF")
+    st.header("📈 Narrador Financiero y Revelaciones NIIF")
     st.markdown("""
     <div class='instruccion-box' style='border-left: 4px solid #ad00ff;'>
-        <h4>💡 Financial Storytelling</h4>
-        <p>No entregues solo números. Esta herramienta analiza tus Estados Financieros comparativos, detecta las variaciones más críticas y <strong>redacta automáticamente</strong> el informe para la Gerencia y las Notas de Revelación bajo NIIF.</p>
+        <h4>💡 Financial Storytelling Automatizado</h4>
+        <p>Análisis comparativo de Estados Financieros con IA para detectar variaciones críticas y redactar automáticamente informes gerenciales y notas de revelación bajo norma NIIF.</p>
     </div>
     """, unsafe_allow_html=True)
 
     # Carga de archivos comparativos
     col1, col2 = st.columns(2)
     with col1:
-        st.subheader("📅 Año Actual (2025)")
-        file_actual = st.file_uploader("Cargar Balance/P&G Año Actual", type=['xlsx'])
+        st.subheader("📅 Año Actual (Ej: 2025)")
+        file_actual = st.file_uploader("Cargar Balance/P&G Actual", type=['xlsx'])
     with col2:
-        st.subheader("📅 Año Anterior (2024)")
-        file_anterior = st.file_uploader("Cargar Balance/P&G Año Anterior", type=['xlsx'])
+        st.subheader("📅 Año Anterior (Ej: 2024)")
+        file_anterior = st.file_uploader("Cargar Balance/P&G Anterior", type=['xlsx'])
 
     if file_actual and file_anterior:
         try:
@@ -644,106 +685,82 @@ elif menu == "📈 Reportes Gerenciales & Notas NIIF (IA)":
             df_ant = pd.read_excel(file_anterior)
             
             st.write("---")
-            st.subheader("⚙️ Configuración del Análisis")
+            st.subheader("⚙️ Configuración del Análisis Comparativo")
             c1, c2, c3 = st.columns(3)
-            # Asumimos que el usuario selecciona la cuenta y el valor
             col_cuenta = c1.selectbox("Columna 'Cuenta Contable':", df_act.columns)
-            col_valor_act = c2.selectbox("Valor Año Actual:", df_act.columns)
-            col_valor_ant = c3.selectbox("Valor Año Anterior:", df_ant.columns)
+            col_valor_act = c2.selectbox("Columna Valor Año Actual:", df_act.columns)
+            col_valor_ant = c3.selectbox("Columna Valor Año Anterior:", df_ant.columns)
 
             if st.button("✨ GENERAR INFORME INTELIGENTE") and api_key:
-                # 1. Preparación de Datos (Programación)
-                # Unimos los dos dataframes por la cuenta contable
-                df_act = df_act.groupby(col_cuenta)[col_valor_act].sum().reset_index()
-                df_ant = df_ant.groupby(col_cuenta)[col_valor_ant].sum().reset_index()
+                # Preparación de Datos
+                df_act_g = df_act.groupby(col_cuenta)[col_valor_act].sum().reset_index()
+                df_ant_g = df_ant.groupby(col_cuenta)[col_valor_ant].sum().reset_index()
                 
-                merged = pd.merge(df_act, df_ant, on=col_cuenta, how='inner').fillna(0)
+                merged = pd.merge(df_act_g, df_ant_g, on=col_cuenta, how='inner').fillna(0)
                 merged['Variacion_Abs'] = merged[col_valor_act] - merged[col_valor_ant]
-                merged['Variacion_Rel'] = (merged['Variacion_Abs'] / merged[col_valor_ant]).replace([float('inf'), -float('inf')], 0) * 100
                 
-                # Filtramos las variaciones más significativas (Top 5 subidas y bajadas) para no saturar a la IA
+                # Filtrar Top Variaciones
                 top_variaciones = merged.reindex(merged.Variacion_Abs.abs().sort_values(ascending=False).index).head(10)
 
-                # 2. Visualización de Alto Impacto (Diseño)
-                st.markdown("### 📊 Tablero de Control Gerencial")
-                
-                # KPIs Principales
-                # Intentamos identificar ingresos y gastos por convención contable (Clase 4 y 5)
-                # Convertimos a string para buscar el prefijo
-                ingresos_act = merged[merged[col_cuenta].astype(str).str.startswith('4', na=False)][col_valor_act].sum()
-                gastos_act = merged[merged[col_cuenta].astype(str).str.startswith('5', na=False)][col_valor_act].sum()
-                utilidad = ingresos_act - gastos_act # Simplificado
-                
-                k1, k2, k3 = st.columns(3)
-                k1.markdown(f"<div class='metric-box-green'><h3>Ingresos</h3><p>${ingresos_act:,.0f}</p></div>", unsafe_allow_html=True)
-                k2.markdown(f"<div class='metric-box-red'><h3>Gastos</h3><p>${gastos_act:,.0f}</p></div>", unsafe_allow_html=True)
-                k3.markdown(f"<div class='rut-card' style='text-align:center'><h3>Utilidad Aprox</h3><p>${utilidad:,.0f}</p></div>", unsafe_allow_html=True)
-                
-                st.markdown("<br>", unsafe_allow_html=True)
-                
-                # Gráfica de Variaciones
-                st.subheader("📉 Variaciones Significativas (Análisis Horizontal)")
+                # Visualización
+                st.markdown("### 📊 Tablero de Control de Variaciones")
                 st.bar_chart(top_variaciones.set_index(col_cuenta)['Variacion_Abs'])
 
-                # 3. Inteligencia Artificial (Contabilidad Experta)
-                st.subheader("🧠 Análisis Cualitativo & Notas NIIF")
+                # Inteligencia Artificial
+                st.subheader("🧠 Análisis Cualitativo & Borrador de Notas NIIF")
                 
-                with st.spinner("🤖 El Consultor IA está redactando el informe..."):
-                    # Prompt de Ingeniería Avanzada
+                with st.spinner("🤖 El Consultor IA está redactando el informe y las notas..."):
                     prompt = f"""
                     Actúa como un Contador Senior experto en NIIF y Análisis Financiero.
-                    Analiza la siguiente tabla de variaciones contables entre el año anterior y el actual:
+                    Analiza la siguiente tabla de variaciones contables significativas:
                     {top_variaciones.to_string()}
 
-                    GENERA DOS SALIDAS:
-                    1. UN INFORME GERENCIAL: Explicando en lenguaje de negocios (claro y directo para el dueño de la empresa) qué pasó con el dinero. Usa tono profesional pero empático. Enfócate en las causas probables de las variaciones grandes.
-                    2. BORRADOR DE NOTAS A LOS ESTADOS FINANCIEROS: Redacta la nota de revelación técnica bajo norma NIIF PYMES para las 3 cuentas con mayor variación, justificando la materialidad.
-                    
-                    Usa formato Markdown profesional.
+                    GENERA DOS SECCIONES EN FORMATO MARKDOWN PROFESIONAL:
+                    1. **INFORME GERENCIAL EJECUTIVO:** Explica en lenguaje de negocios claro (para la junta directiva) las principales causas y efectos de estas variaciones en la situación financiera de la empresa. Sé directo y estratégico.
+                    2. **BORRADOR DE NOTAS A LOS ESTADOS FINANCIEROS (NIIF PYMES):** Redacta la nota de revelación técnica para las 3 cuentas con mayor variación absoluta, justificando la materialidad y describiendo el movimiento.
                     """
                     
                     respuesta_ia = consultar_ia_gemini(prompt)
                     st.markdown(respuesta_ia)
                     
-                    # Botón de descarga del texto
-                    st.download_button("📥 Descargar Informe (.txt)", respuesta_ia, "Informe_Gerencial_NIIF.txt")
+                    st.download_button("📥 Descargar Informe Completo (.txt)", respuesta_ia, "Informe_Notas_NIIF.txt")
 
         except Exception as e:
-            st.error(f"Error procesando los archivos: {e}. Asegúrate de que las columnas tengan nombres similares y códigos contables.")
+            st.error(f"Error técnico en el procesamiento: {e}. Verifique que los archivos tengan la misma estructura de columnas.")
 
 # ------------------------------------------------------------------------------
 # 10. VALIDADOR RUT
 # ------------------------------------------------------------------------------
 elif menu == "🔍 Validador de RUT (Real)":
-    st.header("🔍 Validador Oficial RUT")
+    st.header("🔍 Validador Oficial de RUT")
     st.markdown("""
     <div class='instruccion-box'>
-        <h4>💡 Herramienta de Verificación</h4>
-        <p>Calcula el Dígito de Verificación (DV) exacto usando el algoritmo oficial. Incluye acceso directo a la DIAN para verificar el estado del RUT.</p>
+        <h4>💡 Verificación de Identificación Tributaria</h4>
+        <p>Cálculo exacto del Dígito de Verificación (DV) mediante el algoritmo oficial de la DIAN y acceso directo a la consulta de estado del RUT.</p>
     </div>
     """, unsafe_allow_html=True)
     
-    nit = st.text_input("Ingrese NIT o Cédula (Sin DV):", max_chars=15)
+    nit = st.text_input("Ingrese NIT o Cédula (Sin el dígito de verificación):", max_chars=15)
     if st.button("🔢 CALCULAR DV") and nit:
         dv = calcular_dv_colombia(nit)
-        st.markdown(f"<div class='rut-card'><h2>NIT: {nit} - {dv}</h2><p>Dígito de Verificación Correcto</p></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='rut-card'><h2>NIT: {nit} - <span style='color:#0d6efd'>{dv}</span></h2><p>Dígito de Verificación Correcto</p></div>", unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
-        st.link_button("🔗 Verificar Estado en Muisca (DIAN)", "https://muisca.dian.gov.co/WebRutMuisca/DefConsultaEstadoRUT.faces")
+        st.link_button("🔗 Consultar Estado en Muisca (DIAN)", "https://muisca.dian.gov.co/WebRutMuisca/DefConsultaEstadoRUT.faces")
 
 # ------------------------------------------------------------------------------
 # 11. OCR FACTURAS
 # ------------------------------------------------------------------------------
 elif menu == "📸 Digitalización (OCR)":
-    st.header("📸 Digitalización de Facturas Físicas")
+    st.header("📸 Digitalización de Documentos Físicos (OCR IA)")
     st.markdown("""
     <div class='instruccion-box'>
-        <h4>💡 Del Papel al Excel</h4>
-        <p>Utiliza visión artificial para extraer datos clave (NIT, Fecha, Total) de fotos o escaneos de facturas físicas.</p>
+        <h4>💡 Extracción de Datos de Imágenes</h4>
+        <p>Utiliza inteligencia artificial visual para extraer automáticamente datos clave (NIT, Fecha, Valores) de fotografías o escaneos de facturas físicas.</p>
     </div>
     """, unsafe_allow_html=True)
     
-    af = st.file_uploader("Cargar Imágenes", type=["jpg", "png"], accept_multiple_files=True)
-    if af and st.button("🧠 PROCESAR IMÁGENES") and api_key:
+    af = st.file_uploader("Cargar Imágenes de Facturas (JPG/PNG)", type=["jpg", "png"], accept_multiple_files=True)
+    if af and st.button("🧠 EJECUTAR RECONOCIMIENTO ÓPTICO") and api_key:
         do = []
         bar = st.progress(0)
         for i, f in enumerate(af):
@@ -755,4 +772,4 @@ elif menu == "📸 Digitalización (OCR)":
 # PIE DE PÁGINA
 # ==============================================================================
 st.markdown("---")
-st.markdown("<center><strong>Asistente Contable Pro</strong> | Desarrollado para Contadores 4.0 | Bucaramanga, Colombia</center>", unsafe_allow_html=True)
+st.markdown("<center><strong>Asistente Contable Pro - Enterprise Edition</strong> | Tecnología para Contadores 4.0 | Bucaramanga, Colombia © 2025</center>", unsafe_allow_html=True)
