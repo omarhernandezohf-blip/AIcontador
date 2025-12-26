@@ -10,12 +10,130 @@ from datetime import datetime, timedelta
 import xml.etree.ElementTree as ET
 
 # ==============================================================================
-# 1. CONFIGURACIÓN VISUAL (Debe ir al principio obligatoriamente)
+# 1. CONFIGURACIÓN VISUAL (OBLIGATORIO: PRIMERA LÍNEA EJECUTABLE)
 # ==============================================================================
 st.set_page_config(page_title="Asistente Contable Pro 2025", page_icon="📊", layout="wide")
 
 # ==============================================================================
-# 2. CONEXIÓN A GOOGLE SHEETS (USANDO SECRETS)
+# 2. SISTEMA DE SEGURIDAD Y LOGIN (NUEVO BLOQUE AÑADIDO)
+# ==============================================================================
+# Importamos librerías de seguridad (Solo si están instaladas)
+try:
+    from google_auth_oauthlib.flow import Flow
+    from google.oauth2 import id_token
+    import google.auth.transport.requests
+    import requests
+except ImportError:
+    st.error("⚠️ Error Crítico: Faltan librerías de seguridad. Asegúrate de tener 'google-auth-oauthlib' y 'google-auth' en requirements.txt")
+    st.stop()
+
+# URL EXACTA de tu aplicación (Coincide con la configurada en Google Cloud)
+REDIRECT_URI = "https://aicontador.streamlit.app"
+
+def sistema_login():
+    """Gestiona todo el flujo de OAuth2 con Google."""
+    
+    # 1. Si el usuario ya está logueado en la sesión, lo dejamos pasar.
+    if st.session_state.get('logged_in') == True:
+        return True
+
+    # 2. Configuración del flujo de OAuth usando st.secrets
+    # Esto busca la información que pegaste en el paso anterior en Streamlit
+    try:
+        client_config = {
+            "web": {
+                "client_id": st.secrets["client_id"],
+                "project_id": st.secrets["project_id"],
+                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                "token_uri": "https://oauth2.googleapis.com/token",
+                "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+                "client_secret": st.secrets["client_secret"],
+                "redirect_uris": [REDIRECT_URI]
+            }
+        }
+        
+        # Permisos solicitados: OpenID, Email y Perfil básico
+        scopes = [
+            "openid",
+            "https://www.googleapis.com/auth/userinfo.email",
+            "https://www.googleapis.com/auth/userinfo.profile"
+        ]
+
+        # Creamos el objeto de flujo
+        flow = Flow.from_client_config(
+            client_config,
+            scopes=scopes,
+            redirect_uri=REDIRECT_URI
+        )
+
+    except Exception as e:
+        st.error(f"❌ Error de Configuración de Secretos: {e}")
+        st.info("Verifica que hayas pegado correctamente los datos en 'Secrets' de Streamlit.")
+        st.stop()
+
+    # 3. Lógica de Redirección (Cuando vuelve de Google)
+    if 'code' in st.query_params:
+        try:
+            code = st.query_params['code']
+            flow.fetch_token(code=code)
+            credentials = flow.credentials
+            
+            # Verificamos que el token sea legítimo
+            request = google.auth.transport.requests.Request()
+            id_info = id_token.verify_oauth2_token(
+                credentials.id_token, request, st.secrets["client_id"]
+            )
+            
+            # ¡LOGIN EXITOSO! Guardamos en sesión
+            st.session_state['logged_in'] = True
+            st.session_state['username'] = id_info.get('name')
+            st.session_state['email'] = id_info.get('email')
+            
+            # Limpiamos la URL (quitamos el código feo) y recargamos
+            st.query_params.clear()
+            st.rerun()
+            return True
+            
+        except Exception as e:
+            st.error(f"❌ Error validando credenciales: {e}")
+            time.sleep(4)
+            st.query_params.clear()
+            st.rerun()
+
+    # 4. Pantalla de Login (Si no ha entrado)
+    else:
+        # Generamos la URL para ir a Google
+        auth_url, _ = flow.authorization_url(prompt='consent')
+        
+        # Interfaz de Bienvenida (Antes de entrar)
+        st.markdown(f"""
+            <div style="display: flex; justify-content: center; align-items: center; height: 80vh; flex-direction: column; background-color: #0e1117;">
+                <img src="https://cdn-icons-png.flaticon.com/512/9320/9320399.png" width="120" style="margin-bottom: 20px;">
+                <h1 style="color: #0d6efd; font-size: 3.5rem; font-family: 'Segoe UI', sans-serif; font-weight: 800; margin-bottom: 10px;">Asistente Contable Pro</h1>
+                <p style="color: #a0a0a0; font-size: 1.2rem; margin-bottom: 40px;">Tu Centro de Comando Financiero Inteligente</p>
+                
+                <a href="{auth_url}" target="_self" style="
+                    background: linear-gradient(90deg, #4285F4 0%, #357ae8 100%);
+                    color: white; padding: 18px 50px; 
+                    text-decoration: none; border-radius: 50px; font-weight: bold; 
+                    font-family: sans-serif; font-size: 20px; 
+                    box-shadow: 0 10px 25px rgba(66, 133, 244, 0.4);
+                    border: 1px solid rgba(255,255,255,0.1);
+                    transition: all 0.3s ease;">
+                    🇬 Iniciar Sesión con Google
+                </a>
+                <p style="color: #555; margin-top: 30px; font-size: 0.8rem;">Acceso Seguro v5.0 | Build 2025</p>
+            </div>
+        """, unsafe_allow_html=True)
+        return False
+
+# --- EJECUCIÓN DEL PORTERO ---
+# Si sistema_login devuelve False (no entró), detenemos toda la ejecución aquí.
+if not sistema_login():
+    st.stop()
+
+# ==============================================================================
+# 3. CONEXIÓN A GOOGLE SHEETS (USANDO SECRETS)
 # ==============================================================================
 try:
     if "gcp_service_account" in st.secrets:
@@ -26,11 +144,11 @@ try:
         # Si no hay secretos, la variable queda nula pero la app no se rompe
         gc = None
 except Exception as e:
-    st.error(f"Error conectando a Google Sheets: {e}")
+    # st.error(f"Error conectando a Google Sheets: {e}") # Silenciado para no ensuciar interfaz
     gc = None
 
 # ==============================================================================
-# 3. ESTILOS Y CONSTANTES
+# 4. ESTILOS Y CONSTANTES (INTACTOS)
 # ==============================================================================
 
 # Lógica para saludo dinámico
@@ -139,7 +257,7 @@ BASE_RET_SERVICIOS = 4 * UVT_2025
 BASE_RET_COMPRAS = 27 * UVT_2025
 
 # ==============================================================================
-# 4. FUNCIONES DE LÓGICA DE NEGOCIO
+# 5. FUNCIONES DE LÓGICA DE NEGOCIO (INTACTAS)
 # ==============================================================================
 
 def calcular_dv_colombia(nit_sin_dv):
@@ -248,10 +366,18 @@ def parsear_xml_dian(archivo_xml):
         return {"Archivo": archivo_xml.name, "Error": "Error XML"}
 
 # ==============================================================================
-# 5. INTERFAZ DE USUARIO (SIDEBAR & MENÚ)
+# 6. INTERFAZ DE USUARIO (SIDEBAR & MENÚ)
 # ==============================================================================
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/9320/9320399.png", width=80)
+    
+    # Mostrar usuario logueado
+    if 'username' in st.session_state:
+        st.write(f"👤 **{st.session_state['username']}**")
+        if st.button("Cerrar Sesión"):
+            st.session_state.clear()
+            st.rerun()
+            
     st.markdown("### 🏢 Panel de Control")
     st.markdown("---")
     
@@ -281,14 +407,14 @@ with st.sidebar:
     st.markdown("<br><center><small>v6.0 | Build 2025</small></center>", unsafe_allow_html=True)
 
 # ==============================================================================
-# 6. DESARROLLO DE PESTAÑAS (PÁGINAS)
+# 7. DESARROLLO DE PESTAÑAS (PÁGINAS)
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
 # 0. INICIO / QUIÉNES SOMOS
 # ------------------------------------------------------------------------------
 if menu == "🏠 Inicio / Quiénes Somos":
-    st.markdown(f"# {icono_saludo} {saludo}, Colega.")
+    st.markdown(f"# {icono_saludo} {saludo}, {st.session_state.get('username', 'Colega')}.")
     st.markdown("### Bienvenido a tu Centro de Comando Contable Inteligente.")
     
     col_intro1, col_intro2 = st.columns([1.5, 1])
