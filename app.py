@@ -10,30 +10,25 @@ from datetime import datetime, timedelta
 import xml.etree.ElementTree as ET
 
 # ==============================================================================
-# 1. CONFIGURACIÓN VISUAL (Debe ir al principio obligatoriamente)
+# 1. CONFIGURACIÓN VISUAL (OBLIGATORIO AL PRINCIPIO)
 # ==============================================================================
 st.set_page_config(page_title="Asistente Contable Pro 2025", page_icon="📊", layout="wide")
 
 # ==============================================================================
-# 2. CONEXIÓN A GOOGLE SHEETS (USANDO SECRETS)
+# 2. CONEXIÓN A GOOGLE SHEETS (OPCIONAL/SEGURO)
 # ==============================================================================
+# Intentamos conectar solo si existen las credenciales en Secrets
+gc = None
 try:
     if "gcp_service_account" in st.secrets:
         credentials_dict = st.secrets["gcp_service_account"]
-        # Conectar con Google Sheets usando el diccionario de secretos
         gc = gspread.service_account_from_dict(credentials_dict)
-    else:
-        # Si no hay secretos, la variable queda nula pero la app no se rompe
-        gc = None
 except Exception as e:
-    st.error(f"Error conectando a Google Sheets: {e}")
-    gc = None
+    pass # Si falla, la app sigue funcionando sin Sheets
 
 # ==============================================================================
 # 3. ESTILOS Y CONSTANTES
 # ==============================================================================
-
-# Lógica para saludo dinámico
 hora_actual = datetime.now().hour
 if 5 <= hora_actual < 12:
     saludo = "Buenos días"
@@ -47,7 +42,7 @@ else:
 
 st.markdown("""
     <style>
-    /* --- 1. FONDO Y TIPOGRAFÍA --- */
+    /* --- FONDO Y TIPOGRAFÍA --- */
     .stApp {
         background-color: #0e1117 !important;
         color: #e0e0e0 !important;
@@ -57,7 +52,7 @@ st.markdown("""
         font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
     }
 
-    /* --- 2. TÍTULOS CON DEGRADADO --- */
+    /* --- TÍTULOS --- */
     h1 {
         background: -webkit-linear-gradient(45deg, #0d6efd, #00d2ff);
         -webkit-background-clip: text;
@@ -67,7 +62,7 @@ st.markdown("""
     }
     h2, h3 { color: #f0f2f6 !important; font-weight: 700; }
 
-    /* --- 3. TARJETAS INTERACTIVAS (GLASSMORPHISM) --- */
+    /* --- TARJETAS (GLASSMORPHISM) --- */
     .instruccion-box, .rut-card, .reporte-box, .tutorial-step {
         background: rgba(38, 39, 48, 0.7) !important;
         backdrop-filter: blur(10px);
@@ -75,10 +70,10 @@ st.markdown("""
         border-radius: 12px;
         padding: 20px;
         margin-bottom: 25px;
-        transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
     }
 
-    .instruccion-box:hover, .rut-card:hover, .reporte-box:hover, .tutorial-step:hover {
+    .instruccion-box:hover, .rut-card:hover, .reporte-box:hover {
         transform: translateY(-5px);
         box-shadow: 0 10px 20px rgba(0,0,0,0.4);
         border-color: #0d6efd;
@@ -86,9 +81,8 @@ st.markdown("""
 
     .instruccion-box { border-left: 4px solid #0d6efd; }
     .instruccion-box h4 { color: #0d6efd !important; margin-top: 0; font-weight: bold; }
-    .instruccion-box p, .instruccion-box li { color: #b0b3b8 !important; }
-
-    /* --- 4. BOTONES ELEGANTES --- */
+    
+    /* --- BOTONES --- */
     .stButton>button {
         background: linear-gradient(90deg, #0d6efd 0%, #0056b3 100%) !important;
         color: white !important;
@@ -107,11 +101,7 @@ st.markdown("""
         transform: scale(1.02);
     }
 
-    /* --- 5. ENLACES --- */
-    a { color: #4dabf7 !important; text-decoration: none; transition: color 0.2s; }
-    a:hover { color: #a5d8ff !important; text-decoration: none; }
-
-    /* --- 6. ALERTAS ESTILIZADAS --- */
+    /* --- ALERTAS --- */
     .metric-box-red { 
         background: rgba(62, 18, 22, 0.8) !important; 
         color: #ffaeb6 !important; 
@@ -252,6 +242,7 @@ def parsear_xml_dian(archivo_xml):
 # ==============================================================================
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/9320/9320399.png", width=80)
+    
     st.markdown("### 🏢 Panel de Control")
     st.markdown("---")
     
@@ -265,7 +256,7 @@ with st.sidebar:
         "💰 Tesorería & Flujo de Caja",
         "💰 Calculadora Costos (Masiva)",
         "📊 Analítica Financiera",
-        "📈 Reportes Gerenciales & Notas NIIF (IA)", # NUEVO MÓDULO AÑADIDO
+        "📈 Reportes Gerenciales & Notas NIIF (IA)", # La joya de la corona
         "🔍 Validador de RUT (Real)",
         "📸 Digitalización (OCR)"
     ]
@@ -278,7 +269,7 @@ with st.sidebar:
         api_key = st.text_input("API Key Google:", type="password")
         if api_key: genai.configure(api_key=api_key)
     
-    st.markdown("<br><center><small>v6.0 | Build 2025</small></center>", unsafe_allow_html=True)
+    st.markdown("<br><center><small>v7.0 | Build 2025</small></center>", unsafe_allow_html=True)
 
 # ==============================================================================
 # 6. DESARROLLO DE PESTAÑAS (PÁGINAS)
@@ -768,4 +759,3 @@ elif menu == "📸 Digitalización (OCR)":
 # ==============================================================================
 st.markdown("---")
 st.markdown("<center><strong>Asistente Contable Pro</strong> | Desarrollado para Contadores 4.0 | Bucaramanga, Colombia</center>", unsafe_allow_html=True)
-
